@@ -1,4 +1,6 @@
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
+import imaplib
+import email
 import os
 import re
 from datetime import datetime
@@ -25,6 +27,31 @@ logging.basicConfig(
     format='[%(asctime)s] %(levelname)s: %(message)s',
     level=logging.INFO
 )
+
+def get_latest_verification_code():
+    GMAIL_USER = "mahjongmasterph@gmail.com"
+    GMAIL_PASS = "cbvnrlvobcbwignt"
+    MAILBOX = "INBOX"
+    search_phrase = "Here's your verification code"
+    mail = imaplib.IMAP4_SSL("imap.gmail.com")
+    mail.login(GMAIL_USER, GMAIL_PASS)
+    mail.select(MAILBOX)
+    result, data = mail.search(None, "ALL")
+    ids = data[0].split()[::-1]  # newest first
+    for eid in ids:
+        result, msg_data = mail.fetch(eid, "(RFC822)")
+        raw_email = msg_data[0][1]
+        msg = email.message_from_bytes(raw_email)
+        subject = msg['subject']
+        if subject and search_phrase in subject:
+            match = re.search(r'(\d{6})$', subject)
+            mail.logout()
+            if match:
+                return match.group(1)
+            else:
+                return None
+    mail.logout()
+    return None
 
 def build_jobs_url(location, geo_id, remote):
 	"""Build the LinkedIn jobs search URL with the given parameters."""
@@ -241,7 +268,17 @@ def open_linkedin() -> Tuple[Browser, Page]:
         if page.is_visible(account_selector, timeout=2000):
             logging.info("Account selection screen detected. Clicking on account...")
             page.click(account_selector)
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(5000)  # Wait 5 seconds for verification screen
+            # Check for verification code input
+            if page.is_visible('input[name="pin"]', timeout=2000):
+                logging.info("Verification code screen detected. Fetching code from email...")
+                code = get_latest_verification_code()
+                if code:
+                    page.fill('input[name="pin"]', code)
+                    page.click('button[type="submit"]')
+                    logging.info("Verification code submitted.")
+                else:
+                    logging.error("No verification code found in email.")
     except Exception:
         pass
     if not SESSION_FILE.exists():
