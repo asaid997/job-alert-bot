@@ -243,6 +243,16 @@ def open_linkedin() -> Tuple[Browser, Page]:
             logging.info(f"Session saved to {SESSION_FILE}")
         except Exception:
             logging.error("Login failed or took too long.")
+            # Save screenshot and HTML for debugging
+            screenshot_path = "linkedin_login_failure.png"
+            html_path = "linkedin_login_failure.html"
+            try:
+                page.screenshot(path=screenshot_path)
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(page.content())
+                logging.error(f"Saved screenshot to {screenshot_path} and HTML to {html_path}")
+            except Exception as e:
+                logging.error(f"Failed to save screenshot or HTML: {e}")
             browser.close()
             playwright.stop()
             exit(1)

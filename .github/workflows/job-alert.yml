@@ -35,3 +35,11 @@ jobs:
           playwright install chromium
       - name: Run job alert script
         run: python temp.py
+      - name: Upload LinkedIn login debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkedin-login-debug
+          path: |
+            linkedin_login_failure.png
+            linkedin_login_failure.html
