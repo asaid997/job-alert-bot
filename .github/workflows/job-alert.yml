@@ -2,8 +2,8 @@ name: LinkedIn DevOps Job Alert
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '*/10 * * * *'  # Runs every 10 minutes
+  # schedule:
+  #   - cron: '*/10 * * * *'  # Runs every 10 minutes
 
 jobs:
   scrape-and-notify:
