@@ -22,15 +22,15 @@ jobs:
       - name: Cache LinkedIn session
         uses: actions/cache@v4
         with:
-          path: job-seeking/linkedin_session.json
+          path: linkedin_session.json
           key: linkedin-session-${{ runner.os }}
       - name: Cache job results
         uses: actions/cache@v4
         with:
-          path: job-seeking/jobs_cache/
+          path: jobs_cache/
           key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
       - name: Ensure requests is installed
         run: |
           python -c "import requests" || pip install requests
       - name: Run job alert script
-        run: python job-seeking/temp.py
+        run: python temp.py
