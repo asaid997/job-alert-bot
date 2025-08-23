@@ -43,3 +43,9 @@ jobs:
           path: |
             linkedin_login_failure.png
             linkedin_login_failure.html
+      - name: Upload Playwright videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-videos
+          path: playwright-videos/

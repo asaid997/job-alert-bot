@@ -19,6 +19,7 @@ SEARCHES = {
 }
 TIME_RANGE = "r172800"  # Jobs posted in the last hour
 HEADLESS = True
+VIDEO_DIR = "playwright-videos"
 
 logging.basicConfig(
     format='[%(asctime)s] %(levelname)s: %(message)s',
@@ -225,12 +226,13 @@ def open_linkedin() -> Tuple[Browser, Page]:
     browser = playwright.chromium.launch(headless=HEADLESS)
     context = None
     viewport = {"width": 1920, "height": 1080}
+    video_opts = {"dir": VIDEO_DIR, "size": viewport}
     if SESSION_FILE.exists():
         logging.info(f"Loading session from file: {SESSION_FILE}")
-        context = browser.new_context(storage_state=str(SESSION_FILE), viewport=viewport)
+        context = browser.new_context(storage_state=str(SESSION_FILE), viewport=viewport, record_video_dir=VIDEO_DIR, record_video_size=viewport)
     else:
         logging.info("No session file found. Logging in...")
-        context = browser.new_context(viewport=viewport)
+        context = browser.new_context(viewport=viewport, record_video_dir=VIDEO_DIR, record_video_size=viewport)
     page = context.new_page()
     page.goto("https://www.linkedin.com/login")
     if not SESSION_FILE.exists():
