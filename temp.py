@@ -221,7 +221,7 @@ def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote:
 def open_linkedin() -> Tuple[Browser, Page]:
     logging.info("Starting Playwright and browser...")
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=True)
+    browser = playwright.chromium.launch(headless=False)
     context = None
     if SESSION_FILE.exists():
         logging.info(f"Loading session from file: {SESSION_FILE}")
