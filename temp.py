@@ -18,6 +18,7 @@ SEARCHES = {
 	"IL": ["101620260", "2", "Israel"]
 }
 TIME_RANGE = "r172800"  # Jobs posted in the last hour
+HEADLESS = True
 
 logging.basicConfig(
     format='[%(asctime)s] %(levelname)s: %(message)s',
@@ -221,14 +222,15 @@ def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote:
 def open_linkedin() -> Tuple[Browser, Page]:
     logging.info("Starting Playwright and browser...")
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=True)
+    browser = playwright.chromium.launch(headless=HEADLESS)
     context = None
+    viewport = {"width": 1920, "height": 1080}
     if SESSION_FILE.exists():
         logging.info(f"Loading session from file: {SESSION_FILE}")
-        context = browser.new_context(storage_state=str(SESSION_FILE))
+        context = browser.new_context(storage_state=str(SESSION_FILE), viewport=viewport)
     else:
         logging.info("No session file found. Logging in...")
-        context = browser.new_context()
+        context = browser.new_context(viewport=viewport)
     page = context.new_page()
     page.goto("https://www.linkedin.com/login")
     if not SESSION_FILE.exists():
