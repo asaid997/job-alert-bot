@@ -10,8 +10,8 @@ import logging
 BOT_API = os.environ.get('TELEGRAM_BOT_API')
 CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
-EMAIL = os.environ.get("LINKEDIN_EMAIL")
-PASSWORD = os.environ.get("LINKEDIN_PASSWORD")
+EMAIL = os.environ.get("LINKEDIN_EMAIL", "mahjongmasterph@gmail.com")
+PASSWORD = os.environ.get("LINKEDIN_PASSWORD", "kokos123")
 SESSION_FILE = Path(os.environ.get("LINKEDIN_SESSION_FILE", "linkedin_session.json"))
 SEARCHES = {
 	"NL": ["102890719", "3", "Netherlands"],
