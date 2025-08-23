@@ -235,6 +235,15 @@ def open_linkedin() -> Tuple[Browser, Page]:
         context = browser.new_context(viewport=viewport, record_video_dir=VIDEO_DIR, record_video_size=viewport)
     page = context.new_page()
     page.goto("https://www.linkedin.com/login")
+    # Handle account selection screen if present
+    try:
+        account_selector = 'button[aria-label*="bar rafa"], div[role="button"]:has-text("bar rafa")'
+        if page.is_visible(account_selector, timeout=2000):
+            logging.info("Account selection screen detected. Clicking on account...")
+            page.click(account_selector)
+            page.wait_for_timeout(1000)
+    except Exception:
+        pass
     if not SESSION_FILE.exists():
         logging.info("Filling login form...")
         page.fill('input[name="session_key"]', EMAIL)
