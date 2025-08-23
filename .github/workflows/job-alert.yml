@@ -1,0 +1,36 @@
+name: LinkedIn DevOps Job Alert
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'  # Runs every 10 minutes
+
+jobs:
+  scrape-and-notify:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.44.0-focal
+    env:
+      TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      LINKEDIN_EMAIL: ${{ secrets.LINKEDIN_EMAIL }}
+      LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
+      LINKEDIN_SESSION_FILE: linkedin_session.json
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Cache LinkedIn session
+        uses: actions/cache@v4
+        with:
+          path: job-seeking/linkedin_session.json
+          key: linkedin-session-${{ runner.os }}
+      - name: Cache job results
+        uses: actions/cache@v4
+        with:
+          path: job-seeking/jobs_cache/
+          key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
+      - name: Ensure requests is installed
+        run: |
+          python -c "import requests" || pip install requests
+      - name: Run job alert script
+        run: python job-seeking/temp.py
