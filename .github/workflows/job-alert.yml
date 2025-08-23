@@ -29,8 +29,9 @@ jobs:
         with:
           path: jobs_cache/
           key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
-      - name: Ensure requests is installed
+      - name: Install Playwright and requests
         run: |
-          python -c "import requests" || pip install requests
+          pip install playwright requests
+          playwright install chromium
       - name: Run job alert script
         run: python temp.py
