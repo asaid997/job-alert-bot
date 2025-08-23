@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 import requests
 import logging
 
@@ -17,7 +17,7 @@ SEARCHES = {
 	"NL": ["102890719", "3", "Netherlands"],
 	"IL": ["101620260", "2", "Israel"]
 }
-TIME_RANGE = "r600"  # Jobs posted in the last hour
+TIME_RANGE = "r172800"  # Jobs posted in the last hour
 
 logging.basicConfig(
     format='[%(asctime)s] %(levelname)s: %(message)s',
@@ -218,7 +218,7 @@ def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote:
             break
     return all_jobs
 
-def open_linkedin() -> tuple[Browser, Page]:
+def open_linkedin() -> Tuple[Browser, Page]:
     logging.info("Starting Playwright and browser...")
     playwright = sync_playwright().start()
     browser = playwright.chromium.launch(headless=True)
