@@ -21,7 +21,7 @@ SEARCHES = {
 	"NL": ["102890719", "3", "Netherlands"],
 	"IL": ["101620260", "2", "Israel"]
 }
-TIME_RANGE = "r10800"  # Jobs posted in the last hour
+TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
 HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
