@@ -312,20 +312,26 @@ def open_linkedin() -> Tuple[Browser, Page]:
     return browser, page
 
 def main() -> None:
-    logging.info("Job alert script started.")
-    browser, page = open_linkedin()
-    athens_tz = pytz.timezone('Europe/Athens')
-    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-    now_athens = now_utc.astimezone(athens_tz)
-    print(f"Current time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    print(f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    for key in ("IL", "NL"):
-        location, geoid, remote = SEARCHES[key][2], SEARCHES[key][0], SEARCHES[key][1]
-        scrape_jobs(page, browser, location, geoid, remote)
-    # logging.info("All locations processed. Waiting for user to close browser...")
-    # input("Press Enter to close the browser...")
-    # browser.close()
-    logging.info("Browser closed. Script finished.")
+    try:
+        logging.info("Job alert script started.")
+        browser, page = open_linkedin()
+        athens_tz = pytz.timezone('Europe/Athens')
+        now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+        now_athens = now_utc.astimezone(athens_tz)
+        print(f"Current time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        for key in ("IL", "NL"):
+            location, geoid, remote = SEARCHES[key][2], SEARCHES[key][0], SEARCHES[key][1]
+            scrape_jobs(page, browser, location, geoid, remote)
+        logging.info("Browser closed. Script finished.")
+		# input("Press Enter to close the browser...")
+		# browser.close()
+    except Exception as e:
+        import traceback
+        error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
+        print(error_msg)
+        send_telegram_message(f"Job failed!\n<pre>{error_msg}</pre>")
+        raise
 
 if __name__ == "__main__":
 	main()
