@@ -29,12 +29,12 @@ jobs:
         run: |
           echo "Listing files before download:"
           ls -lR
-      - name: Download jobs cache artifact
-        uses: actions/download-artifact@v4
+
+      - name: Cache jobs cache
+        uses: actions/cache@v4
         with:
-          name: jobs-cache
-          path: jobs_cache/
-        continue-on-error: true
+          path: jobs_cache
+          key: jobs-cache-${{ runner.os }}
 
       - name: List files after download
         run: |
@@ -53,7 +53,8 @@ jobs:
           ls -l jobs_cache || true
           echo "[DEBUG] Printing jobs_cache/last_jobs.json contents:"
           cat jobs_cache/last_jobs.json || echo "[DEBUG] jobs_cache/last_jobs.json not found"
-      - name: Upload jobs cache artifact
+      - name: Upload jobs cache artifact (manual/debug only)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jobs-cache
