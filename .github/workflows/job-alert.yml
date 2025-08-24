@@ -24,12 +24,22 @@ jobs:
         with:
           path: linkedin_session.json
           key: linkedin-session-${{ runner.os }}
+
+      - name: List files before download
+        run: |
+          echo "Listing files before download:"
+          ls -lR
       - name: Download jobs cache artifact
         uses: actions/download-artifact@v4
         with:
           name: jobs-cache
           path: jobs_cache/
         continue-on-error: true
+
+      - name: List files after download
+        run: |
+          echo "Listing files after download:"
+          ls -lR
       - name: Install Playwright and requests
         run: |
           pip install playwright requests pytz
