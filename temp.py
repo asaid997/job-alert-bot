@@ -37,8 +37,10 @@ def load_cached_jobs():
 
 def save_cached_jobs(runs):
     JOBS_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[DEBUG] Saving jobs cache to: {JOBS_CACHE_FILE.resolve()}")
     with open(JOBS_CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(runs, f)
+    print(f"[DEBUG] Jobs cache file exists: {JOBS_CACHE_FILE.exists()}")
 
 def flatten_jobs(jobs_runs):
     # Flatten all jobs from all runs into a set of unique job URLs

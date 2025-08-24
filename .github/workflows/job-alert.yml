@@ -46,6 +46,13 @@ jobs:
           playwright install chromium
       - name: Run job alert script
         run: python temp.py
+
+      - name: Print jobs cache file before upload
+        run: |
+          echo "[DEBUG] Listing jobs_cache directory before upload:"
+          ls -l jobs_cache || true
+          echo "[DEBUG] Printing jobs_cache/last_jobs.json contents:"
+          cat jobs_cache/last_jobs.json || echo "[DEBUG] jobs_cache/last_jobs.json not found"
       - name: Upload jobs cache artifact
         uses: actions/upload-artifact@v4
         with:
