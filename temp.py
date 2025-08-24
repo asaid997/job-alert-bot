@@ -11,11 +11,12 @@ import logging
 import pytz
 import json
 
+
 BOT_API = os.environ.get('TELEGRAM_BOT_API')
 CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
-EMAIL = os.environ.get("LINKEDIN_EMAIL", "mahjongmasterph@gmail.com")
-PASSWORD = os.environ.get("LINKEDIN_PASSWORD", "kokos123")
+EMAIL = os.environ.get("LINKEDIN_EMAIL")
+PASSWORD = os.environ.get("LINKEDIN_PASSWORD")
 SESSION_FILE = Path(os.environ.get("LINKEDIN_SESSION_FILE", "linkedin_session.json"))
 SEARCHES = {
 	"NL": ["102890719", "3", "Netherlands"],
@@ -26,6 +27,8 @@ HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
 JOBS_CACHE_RUNS = 3
+
+# Cache is a list of lists, each sublist is a list of job URLs for a run
 def load_cached_jobs():
     if JOBS_CACHE_FILE.exists():
         with open(JOBS_CACHE_FILE, "r", encoding="utf-8") as f:
@@ -35,6 +38,7 @@ def load_cached_jobs():
                 return []
     return []
 
+
 def save_cached_jobs(runs):
     JOBS_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     print(f"[DEBUG] Saving jobs cache to: {JOBS_CACHE_FILE.resolve()}")
@@ -42,12 +46,29 @@ def save_cached_jobs(runs):
         json.dump(runs, f)
     print(f"[DEBUG] Jobs cache file exists: {JOBS_CACHE_FILE.exists()}")
 
-def flatten_jobs(jobs_runs):
-    # Flatten all jobs from all runs into a set of unique job URLs
+
+def extract_job_id(url):
+    m = re.match(r'https://www\.linkedin\.com/jobs/view/(\d+)', url)
+    return m.group(1) if m else url
+
+# Flatten all job URLs from all runs into a set
+def flatten_job_urls(jobs_runs):
     seen = set()
     for run in jobs_runs:
-        for job in run:
-            seen.add(job.get("url"))
+        for url in run:
+            seen.add(url)
+    return seen
+
+# Extract job ID from URL
+def extract_job_id(url):
+    m = re.match(r'https://www\.linkedin\.com/jobs/view/(\d+)', url)
+    return m.group(1) if m else url
+
+def flatten_job_ids(jobs_runs):
+    seen = set()
+    for run in jobs_runs:
+        for job_id in run:
+            seen.add(job_id)
     return seen
 
 logging.basicConfig(
@@ -209,14 +230,24 @@ def format_job_for_telegram(job: dict, location: str, timestamp: str) -> str:
     )
 
 def send_location_header(location: str, timestamp: str) -> None:
+    # Use green squares, check marks, and a long separator for a bold, professional look
+    green_square = '\U0001F7E9'
+    check = '\u2705'
+    rocket = '\U0001F680'
+    chart = '\U0001F4C8'
+    briefcase = '\U0001F4BC'
+    bulb = '\U0001F4A1'
+    sparkle = '\u2728'
+    separator = green_square * 24
     msg = (
-        f"\U0001F4C8\U0001F4BC *\U0001F4A1 DEVOPS JOBS IN {location.upper()} \U0001F4A1*\n"
+        f"{separator}\n"
+        f"{sparkle}{check}{rocket}{chart}{briefcase} *{bulb} DEVOPS JOBS IN {location.upper()} {bulb}* {briefcase}{chart}{rocket}{check}{sparkle}\n"
         f"_Run at: {timestamp}_\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━"
+        f"{separator}"
     )
     send_telegram_markdown_message(msg)
 
-def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote: str, notified_urls: set) -> list:
+def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote: str, notified_job_ids: set) -> list:
     logging.info(f"Starting scrape for location: {location} (geoId={geoid}, remote={remote})")
     jobs_url = build_jobs_url(location, geoid, remote)
     logging.info(f"Navigating to jobs URL: {jobs_url}")
@@ -231,9 +262,7 @@ def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote:
         return []
     page_num = 1
     all_jobs = []
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    # Send location header before jobs
-    send_location_header(location, timestamp)
+    # timestamp and location header will be handled in main if needed
     while True:
         logging.info(f"Scraping page {page_num} for {location}...")
         sentinel_div = page.query_selector('div[data-results-list-top-scroll-sentinel]')
@@ -250,14 +279,6 @@ def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote:
         valid_jobs = [info for job in jobs if (info := extract_job_info(job))]
         all_jobs.extend(valid_jobs)
         logging.info(f"Found {len(valid_jobs)} jobs on page {page_num} for {location}")
-        # Only notify for jobs not already notified
-        for job in valid_jobs:
-            if job['url'] not in notified_urls:
-                msg = format_job_for_telegram(job, location, timestamp)
-                logging.info(f"Sending job to Telegram: {job['title']} at {job['company']}")
-                send_telegram_markdown_message(msg)
-            else:
-                logging.info(f"Skipping already notified job: {job['title']} at {job['company']}")
         pagination = page.query_selector('ul.jobs-search-pagination__pages')
         if not pagination:
             logging.info("No pagination bar found. Ending scrape for this location.")
@@ -350,23 +371,44 @@ def main() -> None:
         print(f"Current time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}")
         print(f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
-        # Load previous jobs cache (list of lists)
+
+        # Load previous jobs cache (list of lists of job IDs)
         jobs_runs = load_cached_jobs()
-        notified_urls = flatten_jobs(jobs_runs)
-        this_run_jobs = []
+        notified_job_ids = flatten_job_ids(jobs_runs)
+        this_run_job_ids = []
 
         # Scrape jobs for each location (last 2 hours)
         for key in ("IL", "NL"):
             location, geoid, remote = SEARCHES[key][2], SEARCHES[key][0], SEARCHES[key][1]
-            jobs = scrape_jobs(page, browser, location, geoid, remote, notified_urls)
-            this_run_jobs.extend(jobs)
+            jobs = scrape_jobs(page, browser, location, geoid, remote, notified_job_ids)
+            # Filter jobs to only those that are new (not in notified_job_ids)
+            new_jobs = []
+            for job in jobs:
+                job_id = extract_job_id(job['url'])
+                if job_id not in notified_job_ids:
+                    new_jobs.append((job, job_id))
+                this_run_job_ids.append(job_id)  # Always add to cache for this run
+            if new_jobs:
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                send_location_header(location, timestamp)
+                for job, job_id in new_jobs:
+                    logging.info(f"Sending new job: {job['title']} ({job_id})")
+                    msg = format_job_for_telegram(job, location, timestamp)
+                    send_telegram_markdown_message(msg)
+            else:
+                logging.info(f"No new jobs to notify for {location}")
 
         # Update cache: keep only last 3 runs
-        jobs_runs.append(this_run_jobs)
+        jobs_runs.append(this_run_job_ids)
         if len(jobs_runs) > JOBS_CACHE_RUNS:
             jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
         save_cached_jobs(jobs_runs)
 
+        logging.info(f"notified_job_ids: {notified_job_ids}")
+        logging.info(f"-----------------------------")
+        logging.info(f"jobs_runs: {jobs_runs}")
+        logging.info(f"-----------------------------")
+        logging.info(f"this_run_job_ids: {this_run_job_ids}")
         logging.info("Browser closed. Script finished.")
 		# input("Press Enter to close the browser...")
 		# browser.close()
