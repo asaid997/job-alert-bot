@@ -3,7 +3,7 @@ name: LinkedIn DevOps Job Alert
 on:
   schedule:
     - cron: '0,20,40 5-19 * * *'  # Every 20 mins, 08:00-21:59 Athens time (UTC+3)
-  # workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   scrape-and-notify:
