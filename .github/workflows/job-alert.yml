@@ -2,7 +2,7 @@ name: LinkedIn DevOps Job Alert
 
 on:
   schedule:
-    - cron: '0,15,30,45 5-19 * * *'  # Every 15 mins, 08:00-21:59 Athens time (UTC+3)
+    - cron: '0,15,30,45 5-20 * * *'  # Every 15 mins, 08:00-21:59 Athens time (UTC+3)
   workflow_dispatch:
 
 jobs:
