@@ -29,6 +29,7 @@ jobs:
         with:
           name: jobs-cache
           path: jobs_cache/
+        continue-on-error: true
       - name: Install Playwright and requests
         run: |
           pip install playwright requests pytz
