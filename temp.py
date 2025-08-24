@@ -3,12 +3,13 @@ import imaplib
 import email
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Tuple
 import requests
 import logging
 import pytz
+import json
 
 BOT_API = os.environ.get('TELEGRAM_BOT_API')
 CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
@@ -20,9 +21,32 @@ SEARCHES = {
 	"NL": ["102890719", "3", "Netherlands"],
 	"IL": ["101620260", "2", "Israel"]
 }
-TIME_RANGE = "r1440"  # Jobs posted in the last hour
+TIME_RANGE = "r10800"  # Jobs posted in the last hour
 HEADLESS = True
 VIDEO_DIR = "playwright-videos"
+JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
+JOBS_CACHE_RUNS = 3
+def load_cached_jobs():
+    if JOBS_CACHE_FILE.exists():
+        with open(JOBS_CACHE_FILE, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except Exception:
+                return []
+    return []
+
+def save_cached_jobs(runs):
+    JOBS_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(JOBS_CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(runs, f)
+
+def flatten_jobs(jobs_runs):
+    # Flatten all jobs from all runs into a set of unique job URLs
+    seen = set()
+    for run in jobs_runs:
+        for job in run:
+            seen.add(job.get("url"))
+    return seen
 
 logging.basicConfig(
     format='[%(asctime)s] %(levelname)s: %(message)s',
@@ -190,7 +214,7 @@ def send_location_header(location: str, timestamp: str) -> None:
     )
     send_telegram_markdown_message(msg)
 
-def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote: str) -> list:
+def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote: str, notified_urls: set) -> list:
     logging.info(f"Starting scrape for location: {location} (geoId={geoid}, remote={remote})")
     jobs_url = build_jobs_url(location, geoid, remote)
     logging.info(f"Navigating to jobs URL: {jobs_url}")
@@ -224,11 +248,14 @@ def scrape_jobs(page: Page, browser: Browser, location: str, geoid: str, remote:
         valid_jobs = [info for job in jobs if (info := extract_job_info(job))]
         all_jobs.extend(valid_jobs)
         logging.info(f"Found {len(valid_jobs)} jobs on page {page_num} for {location}")
-        # Send each job as a separate Telegram message
+        # Only notify for jobs not already notified
         for job in valid_jobs:
-            msg = format_job_for_telegram(job, location, timestamp)
-            logging.info(f"Sending job to Telegram: {job['title']} at {job['company']}")
-            send_telegram_markdown_message(msg)
+            if job['url'] not in notified_urls:
+                msg = format_job_for_telegram(job, location, timestamp)
+                logging.info(f"Sending job to Telegram: {job['title']} at {job['company']}")
+                send_telegram_markdown_message(msg)
+            else:
+                logging.info(f"Skipping already notified job: {job['title']} at {job['company']}")
         pagination = page.query_selector('ul.jobs-search-pagination__pages')
         if not pagination:
             logging.info("No pagination bar found. Ending scrape for this location.")
@@ -320,9 +347,24 @@ def main() -> None:
         now_athens = now_utc.astimezone(athens_tz)
         print(f"Current time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}")
         print(f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+
+        # Load previous jobs cache (list of lists)
+        jobs_runs = load_cached_jobs()
+        notified_urls = flatten_jobs(jobs_runs)
+        this_run_jobs = []
+
+        # Scrape jobs for each location (last 2 hours)
         for key in ("IL", "NL"):
             location, geoid, remote = SEARCHES[key][2], SEARCHES[key][0], SEARCHES[key][1]
-            scrape_jobs(page, browser, location, geoid, remote)
+            jobs = scrape_jobs(page, browser, location, geoid, remote, notified_urls)
+            this_run_jobs.extend(jobs)
+
+        # Update cache: keep only last 3 runs
+        jobs_runs.append(this_run_jobs)
+        if len(jobs_runs) > JOBS_CACHE_RUNS:
+            jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
+        save_cached_jobs(jobs_runs)
+
         logging.info("Browser closed. Script finished.")
 		# input("Press Enter to close the browser...")
 		# browser.close()
