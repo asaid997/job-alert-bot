@@ -2,8 +2,8 @@ name: LinkedIn DevOps Job Alert
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: '*/10 * * * *'  # Runs every 10 minutes
+  schedule:
+    - cron: '0,20,40 5-19 * * *'  # Every 20 mins, 08:00-21:59 Athens time (UTC+3)
 
 jobs:
   scrape-and-notify:
@@ -31,7 +31,7 @@ jobs:
           key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
       - name: Install Playwright and requests
         run: |
-          pip install playwright requests
+          pip install playwright requests pytz
           playwright install chromium
       - name: Run job alert script
         run: python temp.py

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Tuple
 import requests
 import logging
+import pytz
 
 BOT_API = os.environ.get('TELEGRAM_BOT_API')
 CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
@@ -313,6 +314,11 @@ def open_linkedin() -> Tuple[Browser, Page]:
 def main() -> None:
     logging.info("Job alert script started.")
     browser, page = open_linkedin()
+    athens_tz = pytz.timezone('Europe/Athens')
+    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+    now_athens = now_utc.astimezone(athens_tz)
+    print(f"Current time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    print(f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}")
     for key in ("IL", "NL"):
         location, geoid, remote = SEARCHES[key][2], SEARCHES[key][0], SEARCHES[key][1]
         scrape_jobs(page, browser, location, geoid, remote)
