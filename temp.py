@@ -385,8 +385,11 @@ def main() -> None:
             new_jobs = []
             for job in jobs:
                 job_id = extract_job_id(job['url'])
+                logging.info(f"Found job: {job['title']} ({job_id})")
                 if job_id not in notified_job_ids:
                     new_jobs.append((job, job_id))
+                else:
+                    logging.info(f"Skipped already notified job: {job['title']} ({job_id})")
                 this_run_job_ids.append(job_id)  # Always add to cache for this run
             if new_jobs:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
