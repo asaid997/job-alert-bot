@@ -29,7 +29,7 @@ SEARCHES = {
         "titles": ["devops engineer", "site reliability engineer", "SRE"]
     }
 }
-TIME_RANGE = "r1000800"  # Jobs posted in the last 3 hours
+TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
 HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
@@ -147,8 +147,8 @@ def send_telegram_markdown_message(message: str) -> None:
         'parse_mode': 'Markdown'
     }
     try:
-        # response = requests.post(url, data=payload)
-        # response.raise_for_status()
+        response = requests.post(url, data=payload)
+        response.raise_for_status()
         logging.info("Page/job sent to Telegram!")
     except Exception as e:
         logging.error(f"Failed to send Telegram message: {e}")
@@ -279,6 +279,12 @@ def main() -> None:
                         else:
                             logging.info(f"Skipped already notified job: {job_dict['title']} ({job_id})")
                         this_run_job_ids.append(job_id)
+
+            # Update cache: keep only last 3 runs
+            jobs_runs.append(this_run_job_ids)
+            if len(jobs_runs) > JOBS_CACHE_RUNS:
+                jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
+            save_cached_jobs(jobs_runs)
     except Exception as e:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
         print(error_msg)
