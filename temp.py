@@ -171,7 +171,7 @@ def send_location_header(location: str, timestamp: str) -> None:
     briefcase = '\U0001F4BC'
     bulb = '\U0001F4A1'
     sparkle = '\u2728'
-    separator = green_square * 24
+    separator = green_square * 10
     msg = (
         f"{separator}\n"
         f"{sparkle}{check}{rocket}{chart}{briefcase} *{bulb} DEVOPS JOBS IN {location.upper()} {bulb}* {briefcase}{chart}{rocket}{check}{sparkle}\n"
