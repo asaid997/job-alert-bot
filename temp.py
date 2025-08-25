@@ -204,8 +204,7 @@ def main() -> None:
                 geo_id = region_info["geo_id"]
                 location = region_info["region"]
                 remotes = region_info["remotes"]
-                # Send location header before searching job titles for this region
-                send_location_header(location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                region_found_jobs = False
                 for job_title in region_info["titles"]:
                     jobs_url = build_jobs_url(job_title, geo_id, remotes)
                     logging.info(f"Navigating to jobs URL: {jobs_url}")
@@ -266,6 +265,7 @@ def main() -> None:
                     # Scrape all job items robustly, matching LinkedIn's structure
                     job_items = jobs_list.query_selector_all("li")
                     logging.info(f"Found {len(job_items)} jobs for {location} [{job_title}].")
+                    jobs_sent_for_region = 0
                     for job in job_items:
                         card = job.query_selector("div.base-card")
                         if not card:
@@ -274,10 +274,14 @@ def main() -> None:
                         job_id = extract_job_id(job_dict["url"])
                         logging.info(f"Found job: {job_dict['title']} ({job_id})")
                         if job_id not in notified_job_ids and job_id not in this_run_job_ids:
+                            if not region_found_jobs:
+                                send_location_header(location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                                region_found_jobs = True
                             # Only notify new jobs (not seen in previous runs or this run)
                             msg = format_job_for_telegram(job_dict, location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                             send_telegram_markdown_message(msg)
                             logging.info(f"Sent notification for job: {job_dict['title']} ({job_id})")
+                            jobs_sent_for_region += 1
                         else:
                             logging.info(f"Skipped already notified job: {job_dict['title']} ({job_id})")
                         this_run_job_ids.append(job_id)
