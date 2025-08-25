@@ -20,13 +20,13 @@ SEARCHES = {
         "geo_id": "102890719",
         "region": "Netherlands",
         "remotes": "2,3",  # 3: remote, 2: on-site/hybrid
-        "titles": ["devops engineer", "site reliability engineer", "SRE"]
+        "titles": ["devops engineer", "site reliability engineer"]
     },
     "IL": {
         "geo_id": "101620260",
         "region": "Israel",
         "remotes": "2",
-        "titles": ["devops engineer", "site reliability engineer", "SRE"]
+        "titles": ["devops engineer", "site reliability engineer"]
     }
 }
 TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
@@ -204,6 +204,8 @@ def main() -> None:
                 geo_id = region_info["geo_id"]
                 location = region_info["region"]
                 remotes = region_info["remotes"]
+                # Send location header before searching job titles for this region
+                send_location_header(location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 for job_title in region_info["titles"]:
                     jobs_url = build_jobs_url(job_title, geo_id, remotes)
                     logging.info(f"Navigating to jobs URL: {jobs_url}")
@@ -271,8 +273,8 @@ def main() -> None:
                         job_dict = extract_job_info(card)
                         job_id = extract_job_id(job_dict["url"])
                         logging.info(f"Found job: {job_dict['title']} ({job_id})")
-                        if job_id not in notified_job_ids:
-                            # Only notify new jobs
+                        if job_id not in notified_job_ids and job_id not in this_run_job_ids:
+                            # Only notify new jobs (not seen in previous runs or this run)
                             msg = format_job_for_telegram(job_dict, location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                             send_telegram_markdown_message(msg)
                             logging.info(f"Sent notification for job: {job_dict['title']} ({job_id})")
