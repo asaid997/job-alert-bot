@@ -225,7 +225,6 @@ def format_job_for_telegram(job: dict, location: str, timestamp: str) -> str:
         f"\U0001F4CB *Job:* [{job['title']}]({job['url']})\n"
         f"\U0001F3E2 *Company:* {job['company']}\n"
         f"\U0001F4CD *Location:* {job['location']} ({location})\n"
-        f"\U0001F552 _Posted: {timestamp}_\n"
         f"━━━━━━━━━━━━━━━━━━━━━━"
     )
 
