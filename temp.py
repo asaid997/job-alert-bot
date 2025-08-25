@@ -30,7 +30,7 @@ SEARCHES = {
     }
 }
 TIME_RANGE = "r1000800"  # Jobs posted in the last 3 hours
-HEADLESS = False
+HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
 JOBS_CACHE_RUNS = 3
