@@ -33,7 +33,7 @@ TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
 HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
-JOBS_CACHE_RUNS = 3
+JOBS_CACHE_RUNS = 5
 
 # Cache is a list of lists, each sublist is a list of job URLs for a run
 def load_cached_jobs():
@@ -222,8 +222,8 @@ def main() -> None:
                         logging.info(f"No jobs found for {location} [{job_title}] (LinkedIn search page says no match). Skipping to next.")
                         continue
 
-                    # Wait for the jobs list to appear
-                    page.wait_for_selector("ul.jobs-search__results-list", timeout=10000)
+                    # Wait for the jobs list to appear (increased timeout)
+                    page.wait_for_selector("ul.jobs-search__results-list", timeout=20000)
                     jobs_list = page.query_selector("ul.jobs-search__results-list")
                     if not jobs_list:
                         logging.warning(f"Jobs list selector not found for {location} [{job_title}]. Skipping to next.")
@@ -286,11 +286,29 @@ def main() -> None:
                             logging.info(f"Skipped already notified job: {job_dict['title']} ({job_id})")
                         this_run_job_ids.append(job_id)
 
-            # Update cache: keep only last 3 runs
-            jobs_runs.append(this_run_job_ids)
-            if len(jobs_runs) > JOBS_CACHE_RUNS:
-                jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
-            save_cached_jobs(jobs_runs)
+            # Log cache state before update
+            logging.info(f"[CACHE] jobs_runs before update: {jobs_runs}")
+            logging.info(f"[CACHE] this_run_job_ids before dedup: {this_run_job_ids}")
+            logging.info(f"[CACHE] notified_job_ids: {notified_job_ids}")
+
+            # Remove duplicates from this_run_job_ids (preserve order)
+            seen = set()
+            deduped_this_run_job_ids = []
+            for job_id in this_run_job_ids:
+                if job_id not in seen:
+                    deduped_this_run_job_ids.append(job_id)
+                    seen.add(job_id)
+
+            # Only append if there are jobs in this run
+            if deduped_this_run_job_ids:
+                jobs_runs.append(deduped_this_run_job_ids)
+                if len(jobs_runs) > JOBS_CACHE_RUNS:
+                    jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
+                save_cached_jobs(jobs_runs)
+
+            # Log cache state after update
+            logging.info(f"[CACHE] jobs_runs after update: {jobs_runs}")
+            logging.info(f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}")
     except Exception as e:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
         print(error_msg)
