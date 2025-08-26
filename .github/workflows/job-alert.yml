@@ -16,28 +16,23 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      - name: Cache LinkedIn session
-        uses: actions/cache@v4
-        with:
-          path: linkedin_session.json
-          key: linkedin-session-${{ runner.os }}
-
       - name: List files before download
         run: |
           echo "Listing files before download:"
           ls -lR
 
-      - name: Cache jobs cache
-        uses: actions/cache@v4
+
+      - name: Download previous jobs cache artifact
+        uses: actions/download-artifact@v4
         with:
-          path: jobs_cache
-          key: jobs-cache-${{ runner.os }}
+          name: jobs-cache
+        continue-on-error: true
 
       - name: List files after download
         run: |
           echo "Listing files after download:"
           ls -lR
-          cat jobs_cache/last_jobs.json || echo "[DEBUG] jobs_cache/last_jobs.json not found"
+          cat jobs-cache/last_jobs.json || echo "[DEBUG] jobs-cache/last_jobs.json not found"
       - name: Install Playwright and requests
         run: |
           pip install playwright requests pytz
@@ -47,24 +42,16 @@ jobs:
 
       - name: Print jobs cache file before upload
         run: |
-          echo "[DEBUG] Listing jobs_cache directory before upload:"
-          ls -l jobs_cache || true
-          echo "[DEBUG] Printing jobs_cache/last_jobs.json contents:"
-          cat jobs_cache/last_jobs.json || echo "[DEBUG] jobs_cache/last_jobs.json not found"
-      - name: Upload jobs cache artifact (manual/debug only)
+          echo "[DEBUG] Listing jobs-cache directory before upload:"
+          ls -l jobs-cache || true
+          echo "[DEBUG] Printing jobs-cache/last_jobs.json contents:"
+          cat jobs-cache/last_jobs.json || echo "[DEBUG] jobs-cache/last_jobs.json not found"
+      - name: Upload jobs cache artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jobs-cache
-          path: jobs_cache/last_jobs.json
-      - name: Upload LinkedIn login debug artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linkedin-login-debug
-          path: |
-            linkedin_login_failure.png
-            linkedin_login_failure.html
+          path: jobs-cache/last_jobs.json
       - name: Upload Playwright videos
         if: always()
         uses: actions/upload-artifact@v4

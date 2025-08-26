@@ -32,7 +32,7 @@ SEARCHES = {
 TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
 HEADLESS = True
 VIDEO_DIR = "playwright-videos"
-JOBS_CACHE_FILE = Path("jobs_cache/last_jobs.json")
+JOBS_CACHE_FILE = Path("jobs-cache/last_jobs.json")
 JOBS_CACHE_RUNS = 5
 
 # Cache is a list of lists, each sublist is a list of job URLs for a run
