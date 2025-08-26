@@ -20,14 +20,13 @@ jobs:
         run: |
           echo "Listing files before download:"
           ls -lR
-
-
       - name: Cache jobs cache
         uses: actions/cache@v4
         with:
           path: jobs-cache
-          key: jobs-cache-${{ runner.os }}
-
+          key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            jobs-cache-${{ runner.os }}-
       - name: List files after cache restore
         run: |
           echo "Listing files after cache restore:"
