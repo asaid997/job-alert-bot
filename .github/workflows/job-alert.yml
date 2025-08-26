@@ -22,15 +22,15 @@ jobs:
           ls -lR
 
 
-      - name: Download previous jobs cache artifact
-        uses: actions/download-artifact@v4
+      - name: Cache jobs cache
+        uses: actions/cache@v4
         with:
-          name: jobs-cache
-        continue-on-error: true
+          path: jobs-cache
+          key: jobs-cache-${{ runner.os }}
 
-      - name: List files after download
+      - name: List files after cache restore
         run: |
-          echo "Listing files after download:"
+          echo "Listing files after cache restore:"
           ls -lR
           cat jobs-cache/last_jobs.json || echo "[DEBUG] jobs-cache/last_jobs.json not found"
       - name: Install Playwright and requests
@@ -46,12 +46,7 @@ jobs:
           ls -l jobs-cache || true
           echo "[DEBUG] Printing jobs-cache/last_jobs.json contents:"
           cat jobs-cache/last_jobs.json || echo "[DEBUG] jobs-cache/last_jobs.json not found"
-      - name: Upload jobs cache artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jobs-cache
-          path: jobs-cache/last_jobs.json
+  # No upload-artifact needed when using cache
       - name: Upload Playwright videos
         if: always()
         uses: actions/upload-artifact@v4
