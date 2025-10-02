@@ -10,6 +10,7 @@ import requests
 import logging
 import pytz
 import json
+import sys
 from urllib.parse import urlparse
 
 BOT_API = os.environ.get('TELEGRAM_BOT_API')
@@ -185,7 +186,11 @@ def main() -> None:
         logging.info("Job alert script started.")
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=HEADLESS)
-            context = browser.new_context(viewport={"width": 1280, "height": 900})
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 900},
+                record_video_dir=VIDEO_DIR,
+                record_video_size={"width": 1280, "height": 900}
+            )
             page = context.new_page()
 
             athens_tz = pytz.timezone('Europe/Athens')
@@ -213,27 +218,39 @@ def main() -> None:
                     # Try to dismiss the cookie/banner if present
                     try:
                         page.get_by_role("button", name="Dismiss").click(timeout=3000)
+                        logging.info(f"0.5")
                         logging.info("Dismissed banner.")
                     except Exception:
                         logging.info("No dismiss button found.")
 
+                    logging.info(f"1")
                     # Check for 'We couldn’t find a match for' message
                     if page.get_by_text("We couldn’t find a match for", exact=False).is_visible():
                         logging.info(f"No jobs found for {location} [{job_title}] (LinkedIn search page says no match). Skipping to next.")
                         continue
+                    logging.info(f"2")
 
                     # Wait for the jobs list to appear (increased timeout)
                     page.wait_for_selector("ul.jobs-search__results-list", timeout=20000)
                     jobs_list = page.query_selector("ul.jobs-search__results-list")
+                    logging.info(f"3")
                     if not jobs_list:
                         logging.warning(f"Jobs list selector not found for {location} [{job_title}]. Skipping to next.")
                         continue
 
+                    logging.info(f"4")
                     # Click the first job card to focus the list (improves scroll reliability)
-                    first_job_card = jobs_list.query_selector("li div.base-card")
-                    if first_job_card:
-                        first_job_card.click()
-                        time.sleep(0.5)
+                    # But don't click if it might cause navigation
+                    try:
+                        first_job_card = jobs_list.query_selector("li div.base-card")
+                        if first_job_card:
+                            # Just focus without clicking to avoid navigation
+                            first_job_card.scroll_into_view_if_needed()
+                            time.sleep(0.5)
+                        logging.info(f"5 - Focused first job card")
+                    except Exception as e:
+                        logging.warning(f"Could not focus first job card: {e}")
+                    logging.info(f"5----------------")
 
                     # Scroll to the bottom and handle 'See more jobs' and end message
                     _prev_height = -1
@@ -262,10 +279,23 @@ def main() -> None:
                         _prev_height = new_height
                         _scroll_count += 1
 
-                    # Scrape all job items robustly, matching LinkedIn's structure
-                    job_items = jobs_list.query_selector_all("li")
-                    logging.info(f"Found {len(job_items)} jobs for {location} [{job_title}].")
+                    logging.info(f"6----------------")
+                    # Re-query the jobs list to ensure it's still valid after scrolling
+                    try:
+                        jobs_list = page.query_selector("ul.jobs-search__results-list")
+                        if not jobs_list:
+                            logging.warning(f"Jobs list disappeared after scrolling for {location} [{job_title}]. Skipping.")
+                            continue
+                        
+                        # Scrape all job items robustly, matching LinkedIn's structure
+                        job_items = jobs_list.query_selector_all("li")
+                        logging.info(f"Found {len(job_items)} jobs for {location} [{job_title}].")
+                    except Exception as e:
+                        logging.error(f"Error querying job items: {e}")
+                        continue
+                        
                     jobs_sent_for_region = 0
+                    logging.info(f"7----------------")
                     for job in job_items:
                         card = job.query_selector("div.base-card")
                         if not card:
@@ -286,6 +316,7 @@ def main() -> None:
                             logging.info(f"Skipped already notified job: {job_dict['title']} ({job_id})")
                         this_run_job_ids.append(job_id)
 
+                    logging.info(f"8----------------")
             # Log cache state before update
             logging.info(f"[CACHE] jobs_runs before update: {jobs_runs}")
             logging.info(f"[CACHE] this_run_job_ids before dedup: {this_run_job_ids}")
@@ -313,5 +344,6 @@ def main() -> None:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
         print(error_msg)
         logging.error(error_msg)
+        sys.exit(1)  # Exit with error code 1 to signal failure
 
 main()
