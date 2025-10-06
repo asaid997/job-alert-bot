@@ -13,28 +13,29 @@ import json
 import sys
 from urllib.parse import urlparse
 
-BOT_API = os.environ.get('TELEGRAM_BOT_API')
-CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+BOT_API = os.environ.get("TELEGRAM_BOT_API")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 SEARCHES = {
     "NL": {
         "geo_id": "102890719",
         "region": "Netherlands",
         "remotes": "2,3",  # 3: remote, 2: on-site/hybrid
-        "titles": ["devops engineer", "site reliability engineer"]
+        "titles": ["devops engineer", "site reliability engineer"],
     },
     "IL": {
         "geo_id": "101620260",
         "region": "Israel",
         "remotes": "2",
-        "titles": ["devops engineer", "site reliability engineer"]
-    }
+        "titles": ["devops engineer", "site reliability engineer"],
+    },
 }
 TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
 HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs-cache/last_jobs.json")
 JOBS_CACHE_RUNS = 5
+
 
 # Cache is a list of lists, each sublist is a list of job URLs for a run
 def load_cached_jobs():
@@ -59,15 +60,17 @@ def extract_job_id(url):
     # Works for any subdomain and ignores query params
     # Example: https://il.linkedin.com/jobs/view/senior-devops-engineer-at-akamai-technologies-4264658112?position=2&pageNum=0
     import re
-    match = re.search(r'/jobs/view/[^/-]*-?(\d+)', url)
+
+    match = re.search(r"/jobs/view/[^/-]*-?(\d+)", url)
     if match:
         return match.group(1)
     # Fallback: try to find a long number in the path
     path = urlparse(url).path
-    fallback = re.search(r'(\d{7,})', path)
+    fallback = re.search(r"(\d{7,})", path)
     if fallback:
         return fallback.group(1)
     return url  # fallback to full URL if no ID found
+
 
 # Flatten all job URLs from all runs into a set
 def flatten_job_urls(jobs_runs):
@@ -85,17 +88,92 @@ def flatten_job_ids(jobs_runs):
             seen.add(job_id)
     return seen
 
+
 logging.basicConfig(
-    format='[%(asctime)s] %(levelname)s: %(message)s',
-    level=logging.INFO
+    format="[%(asctime)s] %(levelname)s: %(message)s", level=logging.INFO
 )
 
 
 def build_jobs_url(job_title, geo_id, remotes):
     """Build the LinkedIn jobs search URL with the given parameters."""
-    return (
-        f"https://www.linkedin.com/jobs/search/?distance=25&f_TPR={TIME_RANGE}&f_WT={remotes}&geoId={geo_id}&keywords={quote_plus(job_title)}"
-    )
+    return f"https://www.linkedin.com/jobs/search/?distance=25&f_TPR={TIME_RANGE}&f_WT={remotes}&geoId={geo_id}&keywords={quote_plus(job_title)}"
+
+
+def is_login_redirect(page):
+    """Check if LinkedIn redirected to login page."""
+    try:
+        # Wait a moment for any JS redirects to complete
+        time.sleep(2)
+
+        current_url = page.url
+        logging.info(f"🔍 Current URL: {current_url}")
+
+        # Check for login/auth URLs (more comprehensive patterns)
+        login_patterns = [
+            "/login",
+            "/authwall",
+            "/checkpoint",
+            "/uas/login",
+            "linkedin.com/login",
+            "linkedin.com/authwall",
+            "challenge",
+            "signup",
+            "guest",
+        ]
+
+        if any(pattern in current_url.lower() for pattern in login_patterns):
+            logging.warning(f"🚨 Login redirect detected via URL: {current_url}")
+            return True
+
+        # Check for login page elements
+        login_selectors = [
+            'input[name="session_key"]',  # Email field
+            'input[name="session_password"]',  # Password field
+            'input[id="username"]',  # Alternative email field
+            'button[data-tracking-control-name*="sign-in"]',  # Sign in button
+            ".authwall",  # Auth wall class
+            '[data-test-id="sign-in-form"]',  # Sign in form
+        ]
+
+        for selector in login_selectors:
+            if page.query_selector(selector):
+                logging.warning(f"🚨 Login redirect detected via element: {selector}")
+                return True
+
+        # Check if we can find expected job search elements
+        job_indicators = [
+            "ul.jobs-search__results-list",
+            ".jobs-search-results-list",
+            '[data-test-id="job-search-results"]',
+        ]
+
+        has_job_elements = any(
+            page.query_selector(selector) for selector in job_indicators
+        )
+        if not has_job_elements:
+            logging.warning("🚨 No job search elements found - might be login page")
+            return True
+
+        return False
+
+    except Exception as e:
+        logging.error(f"Error checking login redirect: {e}")
+        return False
+
+
+def handle_login_redirect(page):
+    """Clear session and retry - Option 2 approach."""
+    logging.warning("🚨 Login redirect detected! Clearing session...")
+    try:
+        # Clear all cookies and storage
+        page.context.clear_cookies()
+        time.sleep(5)  # Wait before retry
+        logging.info("✅ Session cleared, ready to retry")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to clear session: {e}")
+        return False
+
 
 def extract_job_info(card):
     # Title and URL
@@ -121,32 +199,32 @@ def extract_job_info(card):
         "url": url,
     }
 
+
 def format_jobs_for_telegram(jobs_by_location: dict) -> str:
     """Format the job results as a neat Telegram message."""
     lines = []
     total_jobs = 0
     for location, jobs in jobs_by_location.items():
-        lines.append(f"\U0001F4BC <b>DevOps Jobs in {location}</b>\n")
+        lines.append(f"\U0001f4bc <b>DevOps Jobs in {location}</b>\n")
         if not jobs:
             lines.append("No jobs found.\n")
             continue
         for job in jobs:
-            lines.append(f"<b>{job['title']}</b>\n"
-                         f"<b>Company:</b> {job['company']}\n"
-                         f"<b>Location:</b> {job['location']}\n"
-                         f"<a href='{job['url']}'>View on LinkedIn</a>\n")
+            lines.append(
+                f"<b>{job['title']}</b>\n"
+                f"<b>Company:</b> {job['company']}\n"
+                f"<b>Location:</b> {job['location']}\n"
+                f"<a href='{job['url']}'>View on LinkedIn</a>\n"
+            )
             lines.append("---\n")
         total_jobs += len(jobs)
     lines.append(f"\n<b>Total jobs found:</b> {total_jobs}")
-    return '\n'.join(lines)
+    return "\n".join(lines)
+
 
 def send_telegram_markdown_message(message: str) -> None:
     url = f"https://api.telegram.org/bot{BOT_API}/sendMessage"
-    payload = {
-        'chat_id': CHAT_ID,
-        'text': message,
-        'parse_mode': 'Markdown'
-    }
+    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
     try:
         response = requests.post(url, data=payload)
         response.raise_for_status()
@@ -154,24 +232,26 @@ def send_telegram_markdown_message(message: str) -> None:
     except Exception as e:
         logging.error(f"Failed to send Telegram message: {e}")
 
+
 def format_job_for_telegram(job: dict, location: str, timestamp: str) -> str:
     """Format a single job for Telegram with emojis and a friendly template."""
     return (
-        f"\U0001F4CB *Job:* [{job['title']}]({job['url']})\n"
-        f"\U0001F3E2 *Company:* {job['company']}\n"
-        f"\U0001F4CD *Location:* {job['location']} ({location})\n"
+        f"\U0001f4cb *Job:* [{job['title']}]({job['url']})\n"
+        f"\U0001f3e2 *Company:* {job['company']}\n"
+        f"\U0001f4cd *Location:* {job['location']} ({location})\n"
         f"━━━━━━━━━━━━━━━━━━━━━━"
     )
 
+
 def send_location_header(location: str, timestamp: str) -> None:
     # Use green squares, check marks, and a long separator for a bold, professional look
-    green_square = '\U0001F7E9'
-    check = '\u2705'
-    rocket = '\U0001F680'
-    chart = '\U0001F4C8'
-    briefcase = '\U0001F4BC'
-    bulb = '\U0001F4A1'
-    sparkle = '\u2728'
+    green_square = "\U0001f7e9"
+    check = "\u2705"
+    rocket = "\U0001f680"
+    chart = "\U0001f4c8"
+    briefcase = "\U0001f4bc"
+    bulb = "\U0001f4a1"
+    sparkle = "\u2728"
     separator = green_square * 10
     msg = (
         f"{separator}\n"
@@ -181,6 +261,7 @@ def send_location_header(location: str, timestamp: str) -> None:
     )
     send_telegram_markdown_message(msg)
 
+
 def main() -> None:
     try:
         logging.info("Job alert script started.")
@@ -189,15 +270,17 @@ def main() -> None:
             context = browser.new_context(
                 viewport={"width": 1280, "height": 900},
                 record_video_dir=VIDEO_DIR,
-                record_video_size={"width": 1280, "height": 900}
+                record_video_size={"width": 1280, "height": 900},
             )
             page = context.new_page()
 
-            athens_tz = pytz.timezone('Europe/Athens')
+            athens_tz = pytz.timezone("Europe/Athens")
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
             now_athens = now_utc.astimezone(athens_tz)
             print(f"Current time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-            print(f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+            print(
+                f"Current time (Athens): {now_athens.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+            )
 
             # Load previous jobs cache (list of lists of job IDs)
             jobs_runs = load_cached_jobs()
@@ -215,6 +298,23 @@ def main() -> None:
                     logging.info(f"Navigating to jobs URL: {jobs_url}")
                     page.goto(jobs_url)
 
+                    # 🚨 Check for login redirect immediately
+                    if is_login_redirect(page):
+                        if handle_login_redirect(page):
+                            # Retry navigation with cleared session
+                            logging.info("Retrying navigation with fresh session...")
+                            page.goto(jobs_url)
+                            if is_login_redirect(page):
+                                logging.info(
+                                    "Retrying navigation with fresh session..."
+                                )
+                                page.goto(jobs_url)
+                        else:
+                            logging.error(
+                                f"Failed to handle login redirect. Skipping {job_title}"
+                            )
+                            continue
+
                     # Try to dismiss the cookie/banner if present
                     try:
                         page.get_by_role("button", name="Dismiss").click(timeout=3000)
@@ -225,17 +325,25 @@ def main() -> None:
 
                     logging.info(f"1")
                     # Check for 'We couldn’t find a match for' message
-                    if page.get_by_text("We couldn’t find a match for", exact=False).is_visible():
-                        logging.info(f"No jobs found for {location} [{job_title}] (LinkedIn search page says no match). Skipping to next.")
+                    if page.get_by_text(
+                        "We couldn’t find a match for", exact=False
+                    ).is_visible():
+                        logging.info(
+                            f"No jobs found for {location} [{job_title}] (LinkedIn search page says no match). Skipping to next."
+                        )
                         continue
                     logging.info(f"2")
 
                     # Wait for the jobs list to appear (increased timeout)
-                    page.wait_for_selector("ul.jobs-search__results-list", timeout=20000)
+                    page.wait_for_selector(
+                        "ul.jobs-search__results-list", timeout=20000
+                    )
                     jobs_list = page.query_selector("ul.jobs-search__results-list")
                     logging.info(f"3")
                     if not jobs_list:
-                        logging.warning(f"Jobs list selector not found for {location} [{job_title}]. Skipping to next.")
+                        logging.warning(
+                            f"Jobs list selector not found for {location} [{job_title}]. Skipping to next."
+                        )
                         continue
 
                     logging.info(f"4")
@@ -260,13 +368,19 @@ def main() -> None:
                         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                         page.wait_for_timeout(1500)
                         try:
-                            if page.get_by_text("You've viewed all jobs for").is_visible():
-                                logging.info("Reached end: 'You've viewed all jobs for' message found.")
+                            if page.get_by_text(
+                                "You've viewed all jobs for"
+                            ).is_visible():
+                                logging.info(
+                                    "Reached end: 'You've viewed all jobs for' message found."
+                                )
                                 break
                         except Exception:
                             pass
                         try:
-                            see_more_btn = page.get_by_role("button", name="See more jobs")
+                            see_more_btn = page.get_by_role(
+                                "button", name="See more jobs"
+                            )
                             if see_more_btn.is_visible():
                                 see_more_btn.click()
                                 logging.info("Clicked 'See more jobs' button.")
@@ -284,16 +398,20 @@ def main() -> None:
                     try:
                         jobs_list = page.query_selector("ul.jobs-search__results-list")
                         if not jobs_list:
-                            logging.warning(f"Jobs list disappeared after scrolling for {location} [{job_title}]. Skipping.")
+                            logging.warning(
+                                f"Jobs list disappeared after scrolling for {location} [{job_title}]. Skipping."
+                            )
                             continue
-                        
+
                         # Scrape all job items robustly, matching LinkedIn's structure
                         job_items = jobs_list.query_selector_all("li")
-                        logging.info(f"Found {len(job_items)} jobs for {location} [{job_title}].")
+                        logging.info(
+                            f"Found {len(job_items)} jobs for {location} [{job_title}]."
+                        )
                     except Exception as e:
                         logging.error(f"Error querying job items: {e}")
                         continue
-                        
+
                     jobs_sent_for_region = 0
                     logging.info(f"7----------------")
                     for job in job_items:
@@ -303,17 +421,31 @@ def main() -> None:
                         job_dict = extract_job_info(card)
                         job_id = extract_job_id(job_dict["url"])
                         logging.info(f"Found job: {job_dict['title']} ({job_id})")
-                        if job_id not in notified_job_ids and job_id not in this_run_job_ids:
+                        if (
+                            job_id not in notified_job_ids
+                            and job_id not in this_run_job_ids
+                        ):
                             if not region_found_jobs:
-                                send_location_header(location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                                send_location_header(
+                                    location,
+                                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                )
                                 region_found_jobs = True
                             # Only notify new jobs (not seen in previous runs or this run)
-                            msg = format_job_for_telegram(job_dict, location, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                            msg = format_job_for_telegram(
+                                job_dict,
+                                location,
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            )
                             send_telegram_markdown_message(msg)
-                            logging.info(f"Sent notification for job: {job_dict['title']} ({job_id})")
+                            logging.info(
+                                f"Sent notification for job: {job_dict['title']} ({job_id})"
+                            )
                             jobs_sent_for_region += 1
                         else:
-                            logging.info(f"Skipped already notified job: {job_dict['title']} ({job_id})")
+                            logging.info(
+                                f"Skipped already notified job: {job_dict['title']} ({job_id})"
+                            )
                         this_run_job_ids.append(job_id)
 
                     logging.info(f"8----------------")
@@ -339,11 +471,14 @@ def main() -> None:
 
             # Log cache state after update
             logging.info(f"[CACHE] jobs_runs after update: {jobs_runs}")
-            logging.info(f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}")
+            logging.info(
+                f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
+            )
     except Exception as e:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
         print(error_msg)
         logging.error(error_msg)
         sys.exit(1)  # Exit with error code 1 to signal failure
+
 
 main()
