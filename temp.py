@@ -12,6 +12,7 @@ import pytz
 import json
 import sys
 from urllib.parse import urlparse
+from ai_test import test_batch_job_analysis, test_gemini_simple 
 
 BOT_API = os.environ.get("TELEGRAM_BOT_API")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -35,6 +36,7 @@ HEADLESS = True
 VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs-cache/last_jobs.json")
 JOBS_CACHE_RUNS = 5
+JOBS_TO_FILTER = []
 
 
 # Cache is a list of lists, each sublist is a list of job URLs for a run
@@ -426,10 +428,10 @@ def main() -> None:
                             and job_id not in this_run_job_ids
                         ):
                             if not region_found_jobs:
-                                send_location_header(
-                                    location,
-                                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                )
+                                # send_location_header(
+                                #     location,
+                                #     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                # )
                                 region_found_jobs = True
                             # Only notify new jobs (not seen in previous runs or this run)
                             msg = format_job_for_telegram(
@@ -437,10 +439,15 @@ def main() -> None:
                                 location,
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             )
-                            send_telegram_markdown_message(msg)
+                            # send_telegram_markdown_message(msg)
                             logging.info(
                                 f"Sent notification for job: {job_dict['title']} ({job_id})"
                             )
+                            JOBS_TO_FILTER.append({
+                                "job": job_dict,
+                                "location": location,
+                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            })
                             jobs_sent_for_region += 1
                         else:
                             logging.info(
@@ -449,10 +456,10 @@ def main() -> None:
                         this_run_job_ids.append(job_id)
 
                     logging.info(f"8----------------")
-            # Log cache state before update
-            logging.info(f"[CACHE] jobs_runs before update: {jobs_runs}")
-            logging.info(f"[CACHE] this_run_job_ids before dedup: {this_run_job_ids}")
-            logging.info(f"[CACHE] notified_job_ids: {notified_job_ids}")
+            # # Log cache state before update
+            # logging.info(f"[CACHE] jobs_runs before update: {jobs_runs}")
+            # logging.info(f"[CACHE] this_run_job_ids before dedup: {this_run_job_ids}")
+            # logging.info(f"[CACHE] notified_job_ids: {notified_job_ids}")
 
             # Remove duplicates from this_run_job_ids (preserve order)
             seen = set()
@@ -469,11 +476,15 @@ def main() -> None:
                     jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
                 save_cached_jobs(jobs_runs)
 
-            # Log cache state after update
-            logging.info(f"[CACHE] jobs_runs after update: {jobs_runs}")
-            logging.info(
-                f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
-            )
+            # # Log cache state after update
+            # logging.info(f"[CACHE] jobs_runs after update: {jobs_runs}")
+            # logging.info(
+            #     f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
+            # )
+            logging.info(JOBS_TO_FILTER)
+            logging.info("-------------")
+            if test_gemini_simple():
+                test_batch_job_analysis(JOBS_TO_FILTER)
     except Exception as e:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
         print(error_msg)
