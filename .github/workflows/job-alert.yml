@@ -74,3 +74,5 @@ jobs:
           ls
           cat jobs_to_filter.json
           ls -l
+      - name: Run gemini ai script
+        run: python gemini.py
