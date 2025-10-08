@@ -57,10 +57,10 @@ jobs:
           path: jobs_to_filter.json
 
   filter-using-gemini:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-python
     needs: scrape
     container:
-      image: ubuntu:latest
+      image: ubuntu/python:3.13-25.04_stable
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     steps:
