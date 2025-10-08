@@ -24,9 +24,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: jobs-cache
-          key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
+          key: jobs-cache-${{ github.ref_name }}-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            jobs-cache-${{ runner.os }}-
+            jobs-cache-${{ github.ref_name }}-${{ runner.os }}-
       - name: List files after cache restore
         run: |
           echo "Listing files after cache restore:"
@@ -53,7 +53,7 @@ jobs:
       - name: Upload jobs_to_filter
         uses: actions/upload-artifact@v4
         with:
-          name: new-jobs
+          name: new-jobs-${{ github.ref_name }}
           path: jobs_to_filter.json
 
   filter-using-gemini:
@@ -67,7 +67,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: new-jobs
+          name: new-jobs-${{ github.ref_name }}
 
       - name: Use artifact data
         run: |
