@@ -64,6 +64,9 @@ jobs:
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
