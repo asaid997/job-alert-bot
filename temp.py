@@ -480,9 +480,9 @@ def main() -> None:
                 f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
             )
 
-            # Write jobs to file
+            # Write jobs to file as proper JSON
             with open(JOBS_TO_FILTER_FILE, "w", encoding="utf-8") as f:
-                f.write(str(JOBS_TO_FILTER))
+                json.dump(JOBS_TO_FILTER, f, indent=2, ensure_ascii=False)
 
     except Exception as e:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
