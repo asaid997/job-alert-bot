@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: scrape
     container:
-      image: ubuntu/python:3.13-25.04_stable
+      image: python:3.11-slim
     env:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
     steps:
