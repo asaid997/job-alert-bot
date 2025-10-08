@@ -21,13 +21,8 @@ def load_jobs_to_filter():
     try:
         with open(JOBS_TO_FILTER_FILE, "r", encoding="utf-8") as f:
             content = f.read().strip()
-        
-        # Parse as JSON if possible, otherwise return empty list
-        jobs_data = json.loads(content)
-        return jobs_data if isinstance(jobs_data, list) else []
-    except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON in jobs file: {e}")
-        return []
+
+        return content
     except Exception as e:
         print(f"❌ Error reading jobs file: {e}")
         return []
