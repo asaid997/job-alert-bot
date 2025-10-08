@@ -56,7 +56,7 @@ jobs:
           name: new-jobs
           path: jobs_to_filter.json
 
-  filter using gemini:
+  filter-using-gemini:
     runs-on: ubuntu-latest
     needs: scrape
     container:
