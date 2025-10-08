@@ -72,10 +72,15 @@ jobs:
         with:
           name: new-jobs-${{ github.ref_name }}
 
+      - name: Install Python dependencies
+        run: |
+          pip install requests
+          
       - name: Use artifact data
         run: |
           ls
           cat jobs_to_filter.json
           ls -l
+          
       - name: Run gemini ai script
         run: python gemini.py
