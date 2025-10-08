@@ -12,7 +12,7 @@ import pytz
 import json
 import sys
 from urllib.parse import urlparse
-from ai_test import test_batch_job_analysis, test_gemini_simple 
+from gemini import batch_job_analysis, test_gemini_simple
 
 BOT_API = os.environ.get("TELEGRAM_BOT_API")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -37,6 +37,7 @@ VIDEO_DIR = "playwright-videos"
 JOBS_CACHE_FILE = Path("jobs-cache/last_jobs.json")
 JOBS_CACHE_RUNS = 5
 JOBS_TO_FILTER = []
+JOBS_TO_FILTER_FILE = Path("jobs_to_filter.json")
 
 
 # Cache is a list of lists, each sublist is a list of job URLs for a run
@@ -235,7 +236,7 @@ def send_telegram_markdown_message(message: str) -> None:
         logging.error(f"Failed to send Telegram message: {e}")
 
 
-def format_job_for_telegram(job: dict, location: str, timestamp: str) -> str:
+def format_job_for_telegram(job: dict, location: str) -> str:
     """Format a single job for Telegram with emojis and a friendly template."""
     return (
         f"\U0001f4cb *Job:* [{job['title']}]({job['url']})\n"
@@ -245,7 +246,7 @@ def format_job_for_telegram(job: dict, location: str, timestamp: str) -> str:
     )
 
 
-def send_location_header(location: str, timestamp: str) -> None:
+def send_location_header(location: str) -> None:
     # Use green squares, check marks, and a long separator for a bold, professional look
     green_square = "\U0001f7e9"
     check = "\u2705"
@@ -258,7 +259,6 @@ def send_location_header(location: str, timestamp: str) -> None:
     msg = (
         f"{separator}\n"
         f"{sparkle}{check}{rocket}{chart}{briefcase} *{bulb} DEVOPS JOBS IN {location.upper()} {bulb}* {briefcase}{chart}{rocket}{check}{sparkle}\n"
-        f"_Run at: {timestamp}_\n"
         f"{separator}"
     )
     send_telegram_markdown_message(msg)
@@ -436,8 +436,7 @@ def main() -> None:
                             # Only notify new jobs (not seen in previous runs or this run)
                             msg = format_job_for_telegram(
                                 job_dict,
-                                location,
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                location
                             )
                             # send_telegram_markdown_message(msg)
                             logging.info(
@@ -445,8 +444,7 @@ def main() -> None:
                             )
                             JOBS_TO_FILTER.append({
                                 "job": job_dict,
-                                "location": location,
-                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "location": location
                             })
                             jobs_sent_for_region += 1
                         else:
@@ -456,10 +454,10 @@ def main() -> None:
                         this_run_job_ids.append(job_id)
 
                     logging.info(f"8----------------")
-            # # Log cache state before update
-            # logging.info(f"[CACHE] jobs_runs before update: {jobs_runs}")
-            # logging.info(f"[CACHE] this_run_job_ids before dedup: {this_run_job_ids}")
-            # logging.info(f"[CACHE] notified_job_ids: {notified_job_ids}")
+            # Log cache state before update
+            logging.info(f"[CACHE] jobs_runs before update: {jobs_runs}")
+            logging.info(f"[CACHE] this_run_job_ids before dedup: {this_run_job_ids}")
+            logging.info(f"[CACHE] notified_job_ids: {notified_job_ids}")
 
             # Remove duplicates from this_run_job_ids (preserve order)
             seen = set()
@@ -476,15 +474,19 @@ def main() -> None:
                     jobs_runs = jobs_runs[-JOBS_CACHE_RUNS:]
                 save_cached_jobs(jobs_runs)
 
-            # # Log cache state after update
-            # logging.info(f"[CACHE] jobs_runs after update: {jobs_runs}")
-            # logging.info(
-            #     f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
-            # )
-            logging.info(JOBS_TO_FILTER)
-            logging.info("-------------")
+            # Log cache state after update
+            logging.info(f"[CACHE] jobs_runs after update: {jobs_runs}")
+            logging.info(
+                f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
+            )
+
             if test_gemini_simple():
-                test_batch_job_analysis(JOBS_TO_FILTER)
+                jobs = test_batch_job_analysis(JOBS_TO_FILTER)
+
+                # Write jobs to file
+                with open(JOBS_TO_FILTER_FILE, "w", encoding="utf-8") as f:
+                    f.write(str(jobs))
+
     except Exception as e:
         error_msg = f"Job failed: {str(e)}\n" + traceback.format_exc()
         print(error_msg)

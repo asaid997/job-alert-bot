@@ -1,12 +1,12 @@
 name: LinkedIn DevOps Job Alert
 
 on:
-  schedule:
-    - cron: '0,15,30,45 5-21 * * *'  # Every 15 mins, 08:00-23:59 Athens time (UTC+3)
+  # schedule:
+  #   - cron: '0,15,30,45 5-21 * * *'  # Every 15 mins, 08:00-23:59 Athens time (UTC+3)
   workflow_dispatch:
 
 jobs:
-  scrape-and-notify:
+  scrape:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright/python:v1.44.0-focal
@@ -38,17 +38,39 @@ jobs:
           playwright install chromium
       - name: Run job alert script
         run: python temp.py
-
       - name: Print jobs cache file before upload
         run: |
           echo "[DEBUG] Listing jobs-cache directory before upload:"
           ls -l jobs-cache || true
           echo "[DEBUG] Printing jobs-cache/last_jobs.json contents:"
           cat jobs-cache/last_jobs.json || echo "[DEBUG] jobs-cache/last_jobs.json not found"
-  # No upload-artifact needed when using cache
       - name: Upload Playwright videos
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-videos
           path: playwright-videos/
+      - name: Upload jobs_to_filter
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-jobs
+          path: jobs_to_filter.json
+
+  filter using gemini:
+    runs-on: ubuntu-latest
+    needs: scrape
+    container:
+      image: ubuntu:latest
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: new-jobs
+
+      - name: Use artifact data
+        run: |
+          ls
+          cat jobs_to_filter.json
+          ls -l
