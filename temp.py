@@ -480,9 +480,6 @@ def main() -> None:
                 f"[CACHE] this_run_job_ids after dedup: {deduped_this_run_job_ids}"
             )
 
-            # if test_gemini_simple():
-            #     jobs = batch_job_analysis(JOBS_TO_FILTER)
-
             # Write jobs to file
             with open(JOBS_TO_FILTER_FILE, "w", encoding="utf-8") as f:
                 f.write(str(JOBS_TO_FILTER))

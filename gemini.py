@@ -4,9 +4,33 @@ Simple Google Gemini API test for job analysis.
 import os
 import json
 import requests
+from pathlib import Path
 
 # Set your Google API key here or in environment
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', "AIzaSyC94GrLnk9Rm6-bzOx_i_Y42aEP3gjI5i4")
+
+# File path for jobs to filter
+JOBS_TO_FILTER_FILE = Path("jobs_to_filter.json")
+
+def load_jobs_to_filter():
+    """Load jobs from jobs_to_filter.json file."""
+    if not JOBS_TO_FILTER_FILE.exists():
+        print(f"❌ Jobs file not found: {JOBS_TO_FILTER_FILE}")
+        return []
+    
+    try:
+        with open(JOBS_TO_FILTER_FILE, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        
+        # Parse as JSON if possible, otherwise return empty list
+        jobs_data = json.loads(content)
+        return jobs_data if isinstance(jobs_data, list) else []
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid JSON in jobs file: {e}")
+        return []
+    except Exception as e:
+        print(f"❌ Error reading jobs file: {e}")
+        return []
 
 # Available Gemini models (ordered by rate limit - highest first)
 GEMINI_MODELS = [
@@ -205,3 +229,14 @@ For each job, respond with ONLY this JSON format:
             print(f"❌ Failed with {model}")
     
     print("❌ All models failed for batch job analysis!")
+
+
+if test_gemini_simple():
+    # Load jobs from file
+    jobs_to_filter = load_jobs_to_filter()
+    if jobs_to_filter:
+        print(f"📝 Loaded {len(jobs_to_filter)} jobs for AI analysis")
+        jobs = batch_job_analysis(jobs_to_filter)
+    else:
+        print("❌ No jobs loaded - skipping AI analysis")
+        jobs = None
