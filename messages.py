@@ -105,7 +105,7 @@ def process_and_send_relevant_jobs():
             # Send summary message to Telegram
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             summary_msg = f"🤖 *Job Alert Summary*\n\n📅 Run at: {timestamp}\n📊 Analyzed: {total_jobs} jobs\n❌ No relevant DevOps positions found this time."
-            send_telegram_markdown_message(summary_msg)
+            # send_telegram_markdown_message(summary_msg)
             return
         
         print(f"🎯 Found {len(relevant_jobs)} relevant DevOps jobs!")
