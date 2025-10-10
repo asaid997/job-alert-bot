@@ -170,7 +170,7 @@ def batch_job_analysis(jobs):
     """Test batch job analysis with multiple jobs."""
     print("\n🔍 Testing batch job analysis...")
 
-    prompt = f'''Analyze these {len(jobs)} jobs for a DevOps/platform engineer/cloud engineer/sre/infrastructure engineer/production engineer or anything that a devops can work in - professional with Docker/Kubernetes/AWS/Cloud/gitops(Argocd),iac terraform,ci/cd and more,helm charts and skills:
+    prompt = f'''Analyze these {len(jobs)} jobs for a DevOps/platform engineer/cloud engineer/sre/infrastructure engineer/production engineer or anything that a devops can work in - professional with Docker/Kubernetes/AWS/Cloud/gitops(Argocd),iac terraform,ci/cd and more,helm charts and (exclude jobs that are heavy on networking or finops since its not my strong side) skills:
 
 Jobs to analyze:
 {json.dumps(jobs, indent=2)}
