@@ -238,9 +238,32 @@ if test_gemini_simple():
     if jobs_to_filter:
         print(f"📝 Loaded {len(jobs_to_filter)} jobs for AI analysis")
         jobs = batch_job_analysis(jobs_to_filter)
-        # Write jobs to file as proper JSON
-        with open(FILTERED_JOBS_FILE, "w", encoding="utf-8") as f:
-            json.dump(jobs, f, indent=2, ensure_ascii=False)
     else:
-        print("❌ No jobs loaded - skipping AI analysis")
-        jobs = None
+        print("❌ No jobs loaded - creating empty results")
+        jobs = {
+            "results": [],
+            "summary": {
+                "total_jobs": 0,
+                "relevant_count": 0
+            }
+        }
+    
+    # Always write jobs to file as proper JSON (even if empty)
+    with open(FILTERED_JOBS_FILE, "w", encoding="utf-8") as f:
+        json.dump(jobs, f, indent=2, ensure_ascii=False)
+    
+    print(f"✅ Results written to {FILTERED_JOBS_FILE}")
+else:
+    # If Gemini API fails, still create empty results file
+    print("❌ Gemini API test failed - creating empty results")
+    empty_results = {
+        "results": [],
+        "summary": {
+            "total_jobs": 0,
+            "relevant_count": 0
+        }
+    }
+    with open(FILTERED_JOBS_FILE, "w", encoding="utf-8") as f:
+        json.dump(empty_results, f, indent=2, ensure_ascii=False)
+    
+    print(f"✅ Empty results written to {FILTERED_JOBS_FILE}")
