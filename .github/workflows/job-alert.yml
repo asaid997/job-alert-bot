@@ -80,9 +80,7 @@ jobs:
           ls -l
           
       - name: Run gemini ai script
-        run: |
-          python gemini.py
-          ls filtered_jobs.json
+        run: python gemini.py
       - name: Upload filtered_jobs
         uses: actions/upload-artifact@v4
         with:
@@ -104,11 +102,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: filtered-jobs-${{ github.ref_name }}
-      # - name: Install Python dependencies
-      #   run: |
-      #     pip install requests
+      - name: Install Python dependencies
+        run: |
+          pip install requests
       - name: Use artifact data
         run: |
           ls
           cat filtered_jobs.json
           ls -l
+      - name: Run messages script
+        run: python messages.py
