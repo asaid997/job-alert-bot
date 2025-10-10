@@ -6,13 +6,11 @@ import re
 from datetime import datetime, timedelta
 import time
 from pathlib import Path
-import requests
 import logging
 import pytz
 import json
 import sys
 from urllib.parse import urlparse
-from gemini import batch_job_analysis, test_gemini_simple
 
 BOT_API = os.environ.get("TELEGRAM_BOT_API")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -203,65 +201,65 @@ def extract_job_info(card):
     }
 
 
-def format_jobs_for_telegram(jobs_by_location: dict) -> str:
-    """Format the job results as a neat Telegram message."""
-    lines = []
-    total_jobs = 0
-    for location, jobs in jobs_by_location.items():
-        lines.append(f"\U0001f4bc <b>DevOps Jobs in {location}</b>\n")
-        if not jobs:
-            lines.append("No jobs found.\n")
-            continue
-        for job in jobs:
-            lines.append(
-                f"<b>{job['title']}</b>\n"
-                f"<b>Company:</b> {job['company']}\n"
-                f"<b>Location:</b> {job['location']}\n"
-                f"<a href='{job['url']}'>View on LinkedIn</a>\n"
-            )
-            lines.append("---\n")
-        total_jobs += len(jobs)
-    lines.append(f"\n<b>Total jobs found:</b> {total_jobs}")
-    return "\n".join(lines)
+# def format_jobs_for_telegram(jobs_by_location: dict) -> str:
+#     """Format the job results as a neat Telegram message."""
+#     lines = []
+#     total_jobs = 0
+#     for location, jobs in jobs_by_location.items():
+#         lines.append(f"\U0001f4bc <b>DevOps Jobs in {location}</b>\n")
+#         if not jobs:
+#             lines.append("No jobs found.\n")
+#             continue
+#         for job in jobs:
+#             lines.append(
+#                 f"<b>{job['title']}</b>\n"
+#                 f"<b>Company:</b> {job['company']}\n"
+#                 f"<b>Location:</b> {job['location']}\n"
+#                 f"<a href='{job['url']}'>View on LinkedIn</a>\n"
+#             )
+#             lines.append("---\n")
+#         total_jobs += len(jobs)
+#     lines.append(f"\n<b>Total jobs found:</b> {total_jobs}")
+#     return "\n".join(lines)
 
 
-def send_telegram_markdown_message(message: str) -> None:
-    url = f"https://api.telegram.org/bot{BOT_API}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
-    try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status()
-        logging.info("Page/job sent to Telegram!")
-    except Exception as e:
-        logging.error(f"Failed to send Telegram message: {e}")
+# def send_telegram_markdown_message(message: str) -> None:
+#     url = f"https://api.telegram.org/bot{BOT_API}/sendMessage"
+#     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
+#     try:
+#         response = requests.post(url, data=payload)
+#         response.raise_for_status()
+#         logging.info("Page/job sent to Telegram!")
+#     except Exception as e:
+#         logging.error(f"Failed to send Telegram message: {e}")
 
 
-def format_job_for_telegram(job: dict, location: str) -> str:
-    """Format a single job for Telegram with emojis and a friendly template."""
-    return (
-        f"\U0001f4cb *Job:* [{job['title']}]({job['url']})\n"
-        f"\U0001f3e2 *Company:* {job['company']}\n"
-        f"\U0001f4cd *Location:* {job['location']} ({location})\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━"
-    )
+# def format_job_for_telegram(job: dict, location: str) -> str:
+#     """Format a single job for Telegram with emojis and a friendly template."""
+#     return (
+#         f"\U0001f4cb *Job:* [{job['title']}]({job['url']})\n"
+#         f"\U0001f3e2 *Company:* {job['company']}\n"
+#         f"\U0001f4cd *Location:* {job['location']} ({location})\n"
+#         f"━━━━━━━━━━━━━━━━━━━━━━"
+#     )
 
 
-def send_location_header(location: str) -> None:
-    # Use green squares, check marks, and a long separator for a bold, professional look
-    green_square = "\U0001f7e9"
-    check = "\u2705"
-    rocket = "\U0001f680"
-    chart = "\U0001f4c8"
-    briefcase = "\U0001f4bc"
-    bulb = "\U0001f4a1"
-    sparkle = "\u2728"
-    separator = green_square * 10
-    msg = (
-        f"{separator}\n"
-        f"{sparkle}{check}{rocket}{chart}{briefcase} *{bulb} DEVOPS JOBS IN {location.upper()} {bulb}* {briefcase}{chart}{rocket}{check}{sparkle}\n"
-        f"{separator}"
-    )
-    send_telegram_markdown_message(msg)
+# def send_location_header(location: str) -> None:
+#     # Use green squares, check marks, and a long separator for a bold, professional look
+#     green_square = "\U0001f7e9"
+#     check = "\u2705"
+#     rocket = "\U0001f680"
+#     chart = "\U0001f4c8"
+#     briefcase = "\U0001f4bc"
+#     bulb = "\U0001f4a1"
+#     sparkle = "\u2728"
+#     separator = green_square * 10
+#     msg = (
+#         f"{separator}\n"
+#         f"{sparkle}{check}{rocket}{chart}{briefcase} *{bulb} DEVOPS JOBS IN {location.upper()} {bulb}* {briefcase}{chart}{rocket}{check}{sparkle}\n"
+#         f"{separator}"
+#     )
+#     send_telegram_markdown_message(msg)
 
 
 def main() -> None:
@@ -434,10 +432,10 @@ def main() -> None:
                                 # )
                                 region_found_jobs = True
                             # Only notify new jobs (not seen in previous runs or this run)
-                            msg = format_job_for_telegram(
-                                job_dict,
-                                location
-                            )
+                            # msg = format_job_for_telegram(
+                            #     job_dict,
+                            #     location
+                            # )
                             # send_telegram_markdown_message(msg)
                             logging.info(
                                 f"Sent notification for job: {job_dict['title']} ({job_id})"

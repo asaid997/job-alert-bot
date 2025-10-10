@@ -10,9 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright/python:v1.44.0-focal
-    env:
-      TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -83,4 +80,35 @@ jobs:
           ls -l
           
       - name: Run gemini ai script
-        run: python gemini.py
+        run: |
+          python gemini.py
+          ls filtered_jobs.json
+      - name: Upload filtered_jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: filtered-jobs-${{ github.ref_name }}
+          path: filtered_jobs.json
+
+  send-telegram-alert:
+    runs-on: ubuntu-latest
+    needs: scrape
+    container:
+      image: python:3.11-slim
+    env:
+      TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: filtered-jobs-${{ github.ref_name }}
+      # - name: Install Python dependencies
+      #   run: |
+      #     pip install requests
+      - name: Use artifact data
+        run: |
+          ls
+          cat filtered_jobs.json
+          ls -l

@@ -11,6 +11,7 @@ GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', "AIzaSyC94GrLnk9Rm6-bzOx_i_Y42
 
 # File path for jobs to filter
 JOBS_TO_FILTER_FILE = Path("jobs_to_filter.json")
+FILTERED_JOBS_FILE = Path("filtered_jobs.json")
 
 def load_jobs_to_filter():
     """Load jobs from jobs_to_filter.json file."""
@@ -237,6 +238,9 @@ if test_gemini_simple():
     if jobs_to_filter:
         print(f"📝 Loaded {len(jobs_to_filter)} jobs for AI analysis")
         jobs = batch_job_analysis(jobs_to_filter)
+        # Write jobs to file as proper JSON
+        with open(FILTERED_JOBS_FILE, "w", encoding="utf-8") as f:
+            json.dump(jobs, f, indent=2, ensure_ascii=False)
     else:
         print("❌ No jobs loaded - skipping AI analysis")
         jobs = None
