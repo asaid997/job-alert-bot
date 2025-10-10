@@ -57,13 +57,15 @@ def load_ai_results():
         with open(FILTERED_JOBS_FILE, "r", encoding="utf-8") as f:
             content = f.read().strip()
             
-        # Try to parse as regular JSON first
+        # The file contains a JSON-encoded string, so parse it as a string first
         try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            # If that fails, try parsing as JSON string (double-encoded JSON)
+            # First parse: removes the outer quotes and unescapes the JSON string
             json_string = json.loads(content)
+            # Second parse: converts the JSON string to actual objects
             return json.loads(json_string)
+        except (json.JSONDecodeError, TypeError):
+            # Fallback: try parsing as regular JSON (in case format changes)
+            return json.loads(content)
             
     except json.JSONDecodeError as e:
         logging.error(f"Failed to parse AI results JSON: {e}")
