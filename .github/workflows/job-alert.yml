@@ -6,13 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  scrape-and-notify:
+  scrape:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright/python:v1.44.0-focal
-    env:
-      TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,9 +21,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: jobs-cache
-          key: jobs-cache-${{ runner.os }}-${{ github.run_id }}
+          key: jobs-cache-${{ github.ref_name }}-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
-            jobs-cache-${{ runner.os }}-
+            jobs-cache-${{ github.ref_name }}-${{ runner.os }}-
       - name: List files after cache restore
         run: |
           echo "Listing files after cache restore:"
@@ -38,17 +35,80 @@ jobs:
           playwright install chromium
       - name: Run job alert script
         run: python temp.py
-
       - name: Print jobs cache file before upload
         run: |
           echo "[DEBUG] Listing jobs-cache directory before upload:"
           ls -l jobs-cache || true
           echo "[DEBUG] Printing jobs-cache/last_jobs.json contents:"
           cat jobs-cache/last_jobs.json || echo "[DEBUG] jobs-cache/last_jobs.json not found"
-  # No upload-artifact needed when using cache
       - name: Upload Playwright videos
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-videos
           path: playwright-videos/
+      - name: Upload jobs_to_filter
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-jobs-${{ github.ref_name }}
+          path: jobs_to_filter.json
+
+  filter-using-gemini:
+    runs-on: ubuntu-latest
+    needs: scrape
+    container:
+      image: python:3.11-slim
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: new-jobs-${{ github.ref_name }}
+
+      - name: Install Python dependencies
+        run: |
+          pip install requests
+          
+      - name: Use artifact data
+        run: |
+          ls
+          cat jobs_to_filter.json
+          ls -l
+          
+      - name: Run gemini ai script
+        run: python gemini.py
+      - name: Upload filtered_jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: filtered-jobs-${{ github.ref_name }}
+          path: filtered_jobs.json
+
+  send-telegram-alert:
+    runs-on: ubuntu-latest
+    needs: filter-using-gemini
+    container:
+      image: python:3.11-slim
+    env:
+      TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: filtered-jobs-${{ github.ref_name }}
+      - name: Install Python dependencies
+        run: |
+          pip install requests
+      - name: Use artifact data
+        run: |
+          ls
+          cat filtered_jobs.json
+          ls -l
+      - name: Run messages script
+        run: python messages.py
