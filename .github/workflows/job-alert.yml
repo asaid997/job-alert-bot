@@ -91,7 +91,7 @@ jobs:
 
   send-telegram-alert:
     runs-on: ubuntu-latest
-    needs: scrape
+    needs: filter-using-gemini
     container:
       image: python:3.11-slim
     env:
