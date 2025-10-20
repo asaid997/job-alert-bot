@@ -162,18 +162,31 @@ def is_login_redirect(page):
         return False
 
 
-def handle_login_redirect(page):
-    """Clear session and retry - Option 2 approach."""
-    logging.warning("🚨 Login redirect detected! Clearing session...")
-    try:
-        # Clear all cookies and storage
-        page.context.clear_cookies()
-        time.sleep(5)  # Wait before retry
-        logging.info("✅ Session cleared, ready to retry")
-        return True
-    except Exception as e:
-        logging.error(f"Failed to clear session: {e}")
-        return False
+def handle_login_redirect(page, jobs_url, max_retries=10):
+    """Clear session and retry up to max_retries times."""
+    for attempt in range(max_retries):
+        logging.warning(f"🚨 Login redirect detected! Attempt {attempt + 1}/{max_retries} - Clearing session...")
+        try:
+            # Clear all cookies and storage
+            page.context.clear_cookies()
+            time.sleep(5)  # Wait before retry
+            logging.info(f"✅ Session cleared, retrying navigation (attempt {attempt + 1})...")
+            
+            # Retry navigation with cleared session
+            page.goto(jobs_url)
+            
+            # Check if we're still on login page
+            if not is_login_redirect(page):
+                logging.info(f"🎉 Successfully bypassed login after {attempt + 1} attempts!")
+                return True
+            else:
+                logging.warning(f"❌ Still on login page after attempt {attempt + 1}")
+                
+        except Exception as e:
+            logging.error(f"Failed to clear session on attempt {attempt + 1}: {e}")
+    
+    logging.error(f"❌ Failed to bypass login after {max_retries} attempts")
+    return False
 
 
 def extract_job_info(card):
@@ -299,18 +312,9 @@ def main() -> None:
 
                     # 🚨 Check for login redirect immediately
                     if is_login_redirect(page):
-                        if handle_login_redirect(page):
-                            # Retry navigation with cleared session
-                            logging.info("Retrying navigation with fresh session...")
-                            page.goto(jobs_url)
-                            if is_login_redirect(page):
-                                logging.info(
-                                    "Retrying navigation with fresh session..."
-                                )
-                                page.goto(jobs_url)
-                        else:
+                        if not handle_login_redirect(page, jobs_url):
                             logging.error(
-                                f"Failed to handle login redirect. Skipping {job_title}"
+                                f"Failed to handle login redirect after 10 attempts. Skipping {job_title}"
                             )
                             continue
 
