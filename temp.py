@@ -20,13 +20,13 @@ SEARCHES = {
         "geo_id": "102890719",
         "region": "Netherlands",
         "remotes": "2,3",  # 3: remote, 2: on-site/hybrid
-        "titles": ["devops engineer", "site reliability engineer"],
+        "titles": ["devops engineer", "site reliability engineer", "platform engineer"],
     },
     "IL": {
         "geo_id": "101620260",
         "region": "Israel",
         "remotes": "2",
-        "titles": ["devops engineer", "site reliability engineer"],
+        "titles": ["devops engineer", "site reliability engineer", "platform engineer"],
     },
 }
 TIME_RANGE = "r10800"  # Jobs posted in the last 3 hours
@@ -103,6 +103,26 @@ def build_jobs_url(job_title, geo_id, remotes):
 def is_login_redirect(page):
     """Check if LinkedIn redirected to login page."""
     try:
+        try:
+            selector = page.get_by_role("dialog", name="Sign in to view more jobs")
+            count = selector.count()
+            logging.info(f"************************dialog count: {count}")
+            if count > 0:
+                dialog = selector.first
+                logging.info("Sign-in modal found")
+                logging.info(f"class={dialog.get_attribute('class')}")
+                logging.info(f"data-test={dialog.get_attribute('data-test')}")
+                logging.info(f"text preview={dialog.inner_text()[:120]}")
+            selector.evaluate_all("nodes => nodes.forEach(node => node.remove())")
+            page.evaluate("window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })")
+            selector = page.locator("#base-contextual-sign-in-modal div")
+            selector.evaluate_all("nodes => nodes.forEach(node => node.remove())")
+            selector = page.get_by_text("Sign in to view all job postings Sign in Welcome back Email or phone Password")
+            selector.evaluate_all("nodes => nodes.forEach(node => node.remove())")
+            # page.pause()
+            page.evaluate("window.scrollTo({ top: 0, behavior: 'smooth' })")
+        except Exception:
+            pass
         # Wait a moment for any JS redirects to complete
         time.sleep(2)
 
@@ -162,7 +182,7 @@ def is_login_redirect(page):
         return False
 
 
-def handle_login_redirect(page, jobs_url, max_retries=10):
+def handle_login_redirect(page, jobs_url, max_retries=20):
     """Clear session and retry up to max_retries times."""
     for attempt in range(max_retries):
         logging.warning(f"🚨 Login redirect detected! Attempt {attempt + 1}/{max_retries} - Clearing session...")
