@@ -1,6 +1,9 @@
 """
 Simple Google Gemini API test for job analysis.
 """
+
+# --- Original Gemini-based implementation (commented out) ---
+"""
 import os
 import json
 import requests
@@ -267,3 +270,88 @@ else:
         json.dump(empty_results, f, indent=2, ensure_ascii=False)
     
     print(f"✅ Empty results written to {FILTERED_JOBS_FILE}")
+"""
+
+import json
+import re
+from pathlib import Path
+from urllib.parse import urlparse
+
+JOBS_TO_FILTER_FILE = Path("jobs_to_filter.json")
+FILTERED_JOBS_FILE = Path("filtered_jobs.json")
+
+
+def load_jobs() -> list:
+    if not JOBS_TO_FILTER_FILE.exists():
+        print(f"❌ Jobs file not found: {JOBS_TO_FILTER_FILE}")
+        return []
+
+    try:
+        with open(JOBS_TO_FILTER_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception as exc:
+        print(f"❌ Failed to load jobs: {exc}")
+        return []
+
+
+def extract_job_id(url: str | None) -> str:
+    if not url:
+        return ""
+
+    match = re.search(r"/jobs/view/[^/-]*-?(\d+)", url)
+    if match:
+        return match.group(1)
+
+    path = urlparse(url).path
+    fallback = re.search(r"(\d{7,})", path)
+    if fallback:
+        return fallback.group(1)
+
+    return url
+
+
+def transform_jobs(jobs: list) -> dict:
+    results = []
+
+    for entry in jobs:
+        job_data = entry.get("job", {}) if isinstance(entry, dict) else {}
+
+        job_title = job_data.get("title") or entry.get("title") or ""
+        company = job_data.get("company") or entry.get("company") or ""
+        location = job_data.get("location") or entry.get("location") or ""
+        link = job_data.get("url") or entry.get("url") or ""
+        job_id = extract_job_id(link)
+
+        results.append(
+            {
+                "job_title": job_title,
+                "company": company,
+                "location": location,
+                "link": link,
+                "job_id": job_id,
+            }
+        )
+
+    return {
+        "results": results,
+        "summary": {
+            "total_jobs": len(results),
+        },
+    }
+
+
+def write_results(payload: dict) -> None:
+    with open(FILTERED_JOBS_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+
+def main() -> None:
+    jobs = load_jobs()
+    transformed = transform_jobs(jobs)
+    write_results(transformed)
+    print(f"✅ Wrote {transformed['summary']['total_jobs']} jobs to {FILTERED_JOBS_FILE}")
+
+
+if __name__ == "__main__":
+    main()
