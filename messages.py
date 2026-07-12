@@ -382,17 +382,19 @@ def build_full_search_report(
         accepted,
         "🔨",
     )
-    required_review = build_report_section(
-        "🔥🧐 <b>Section 2: Still in the Fire</b>",
-        (
-            "These appeared in the searches, but the rule filter thinks they may not fit.\n"
-            "Review them manually before ignoring them."
-        ),
-        rejected,
-        "⚒️",
-    )
+    # Rejected/"needs review" jobs are no longer shown in the report — too many
+    # low-signal entries. Left in place in case we want to re-enable this later.
+    # required_review = build_report_section(
+    #     "🔥🧐 <b>Section 2: Still in the Fire</b>",
+    #     (
+    #         "These appeared in the searches, but the rule filter thinks they may not fit.\n"
+    #         "Review them manually before ignoring them."
+    #     ),
+    #     rejected,
+    #     "⚒️",
+    # )
 
-    return f"{header}\n\n{high_confidence}\n\n{required_review}{random_hephaestus_quote()}"
+    return f"{header}\n\n{high_confidence}{random_hephaestus_quote()}"
 
 
 def split_text_message(text: str, continuation_title: str) -> list:
@@ -468,6 +470,34 @@ def build_no_new_jobs_message(
     return f"{header}\n\n{body}{random_hephaestus_quote()}"
 
 
+def build_no_matches_message(
+    rejected: list,
+    links: list,
+    started_at: datetime,
+    total_scraped: int,
+    time_range_label: str,
+) -> str:
+    timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
+    header = (
+        "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
+        "🛠️ <b>Forge Report</b>\n"
+        f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
+        f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
+        f"🔎 <b>Search filters:</b> {len(links)}\n"
+        f"📊 <b>Loaded cards:</b> {total_scraped}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━"
+    )
+    body = (
+        f"🔮 The forge turned over {len(rejected)} listing"
+        f"{'s' if len(rejected) != 1 else ''} this round, but none bore the shape we're "
+        "searching for — titles or roles that didn't match what we're after, nothing more "
+        "mysterious than that."
+        "No jobs found matching Junior/internship chemical engineering roles."
+    )
+
+    return f"{header}\n\n{body}{random_hephaestus_quote()}"
+
+
 def build_full_search_report_messages(
     accepted: list,
     rejected: list,
@@ -479,6 +509,13 @@ def build_full_search_report_messages(
     if not accepted and not rejected:
         return [
             build_no_new_jobs_message(links, started_at, total_scraped, time_range_label)
+        ]
+
+    if not accepted:
+        return [
+            build_no_matches_message(
+                rejected, links, started_at, total_scraped, time_range_label
+            )
         ]
 
     report = build_full_search_report(
@@ -511,17 +548,19 @@ def build_full_search_report_messages(
             "🔨",
         )
     )
-    messages.extend(
-        build_report_section_messages(
-            "🔥🧐 <b>Section 2: Still in the Fire</b>",
-            (
-                "These landed in the forge, but the rule filter isn't sure they're shaped right yet.\n"
-                "Review them manually before tossing them in the scrap pile."
-            ),
-            rejected,
-            "⚒️",
-        )
-    )
+    # Rejected/"needs review" jobs are no longer shown in the report — see the
+    # matching comment in build_full_search_report.
+    # messages.extend(
+    #     build_report_section_messages(
+    #         "🔥🧐 <b>Section 2: Still in the Fire</b>",
+    #         (
+    #             "These landed in the forge, but the rule filter isn't sure they're shaped right yet.\n"
+    #             "Review them manually before tossing them in the scrap pile."
+    #         ),
+    #         rejected,
+    #         "⚒️",
+    #     )
+    # )
     messages[-1] += random_hephaestus_quote()
     return messages
 
