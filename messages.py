@@ -4,23 +4,52 @@ Reads AI analysis results and prints/sends relevant jobs.
 """
 import json
 import os
-import requests
 import logging
+import re
+import time
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 # Telegram configuration
-BOT_API = os.environ.get("TELEGRAM_BOT_API")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+BOT_API = os.environ.get(
+    "TELEGRAM_BOT_API",
+    "",
+).strip()
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 FILTERED_JOBS_FILE = Path("filtered_jobs.json")
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+def normalize_bot_token(value: str) -> str:
+    if "/bot" not in value:
+        return value
+
+    match = re.search(r"/bot([^/]+)/", value)
+    return match.group(1) if match else value
+
+
+def telegram_request(bot_token: str, method: str, payload: dict | None = None) -> dict:
+    bot_token = normalize_bot_token(bot_token)
+    url = f"https://api.telegram.org/bot{bot_token}/{method}"
+    data = None
+    headers = {}
+
+    if payload is not None:
+        data = urlencode(payload).encode("utf-8")
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+    request = Request(url, data=data, headers=headers)
+    with urlopen(request, timeout=20) as response:
+        return json.loads(response.read().decode("utf-8"))
+
 
 def send_telegram_markdown_message(message: str) -> None:
     """Send a message to Telegram using Markdown formatting."""
-    url = f"https://api.telegram.org/bot{BOT_API}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
     try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status()
+        telegram_request(BOT_API, "sendMessage", payload)
         logging.info("Message sent to Telegram!")
     except Exception as e:
         logging.error(f"Failed to send Telegram message: {e}")
@@ -200,6 +229,300 @@ def process_and_print_relevant_jobs():
         print("⚠️  Unexpected AI results format")
         print("Raw results:")
         print(ai_results)
+
+
+def send_telegram_html_message(bot_token: str, chat_id: str, text: str) -> bool:
+    try:
+        telegram_request(
+            bot_token,
+            "sendMessage",
+            {
+                "chat_id": chat_id,
+                "text": text,
+                "disable_web_page_preview": "true",
+                "parse_mode": "HTML",
+            },
+        )
+        time.sleep(0.15)
+        return True
+    except Exception as exc:
+        print(f"Failed to send Telegram message: {exc}")
+        return False
+
+
+def html_escape(value) -> str:
+    return (
+        str(value or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def format_job_title(job: dict) -> str:
+    title = html_escape(job.get("title") or "Unknown title")
+    url = job.get("url")
+    if not url:
+        return title
+
+    return f'<a href="{html_escape(url)}">{title}</a>'
+
+
+def format_report_job_entry(job: dict, index: int, emoji: str) -> str:
+    search_bits = []
+    if job.get("search_region"):
+        search_bits.append(job["search_region"])
+    if job.get("search_title"):
+        search_bits.append(job["search_title"])
+
+    search_line = ""
+    if search_bits:
+        search_line = f"\n🔎 <b>Found via:</b> {html_escape(' / '.join(search_bits))}"
+
+    return (
+        f"{emoji} <b>{index}.</b> {format_job_title(job)}\n"
+        f"🏢 <b>Company:</b> {html_escape(job.get('company') or 'Unknown company')}\n"
+        f"📍 <b>Location:</b> {html_escape(job.get('location') or 'Unknown location')}"
+        f"{search_line}\n"
+        f"💡 <b>Reason:</b> {html_escape(job.get('filter_reason') or 'n/a')}"
+    )
+
+
+def build_report_section(title: str, description: str, jobs: list, emoji: str) -> str:
+    if not jobs:
+        return f"{title}\n{description}\n\n😕 No jobs in this section."
+
+    entries = [
+        format_report_job_entry(job, index, emoji)
+        for index, job in enumerate(jobs, start=1)
+    ]
+    return f"{title}\n{description}\n━━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n\n".join(entries)
+
+
+def build_report_header(
+    accepted: list,
+    rejected: list,
+    links: list,
+    started_at: datetime,
+    total_scraped: int,
+    time_range_label: str,
+) -> str:
+    timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
+    reviewed_total = len(accepted) + len(rejected)
+    return (
+        "✅✅✅✅✅✅✅ <b>New Job Search</b> ✅✅✅✅✅✅✅\n\n"
+        "🤖 <b>Job Summary Report</b>\n"
+        f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
+        f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
+        f"🔎 <b>Search filters:</b> {len(links)}\n"
+        f"📊 <b>Loaded cards:</b> {total_scraped}\n"
+        f"🧾 <b>Unique new jobs reviewed:</b> {reviewed_total}\n"
+        f"✅ <b>High confidence:</b> {len(accepted)}\n"
+        f"🧐 <b>Required reviewing:</b> {len(rejected)}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━"
+    )
+
+
+def build_full_search_report(
+    accepted: list,
+    rejected: list,
+    links: list,
+    started_at: datetime,
+    total_scraped: int,
+    time_range_label: str,
+) -> str:
+    header = build_report_header(
+        accepted,
+        rejected,
+        links,
+        started_at,
+        total_scraped,
+        time_range_label,
+    )
+    high_confidence = build_report_section(
+        "✅ <b>Section 1: High confidence jobs</b>",
+        "These look like the strongest chemical junior/internship matches.",
+        accepted,
+        "🧪",
+    )
+    required_review = build_report_section(
+        "🧐 <b>Section 2: Required reviewing</b>",
+        (
+            "These appeared in the searches, but the rule filter thinks they may not fit.\n"
+            "Review them manually before ignoring them."
+        ),
+        rejected,
+        "🔍",
+    )
+
+    return f"{header}\n\n{high_confidence}\n\n{required_review}"
+
+
+def split_text_message(text: str, continuation_title: str) -> list[str]:
+    safe_limit = TELEGRAM_MESSAGE_LIMIT - 200
+    if len(text) <= safe_limit:
+        return [text]
+
+    messages = []
+    current = ""
+    for line in text.splitlines():
+        addition = line if not current else f"\n{line}"
+        if current and len(current) + len(addition) > safe_limit:
+            messages.append(current)
+            current = f"{continuation_title} continued\n━━━━━━━━━━━━━━━━━━━━━━\n{line}"
+        else:
+            current += addition
+
+    if current:
+        messages.append(current)
+
+    return messages
+
+
+def build_report_section_messages(
+    title: str,
+    description: str,
+    jobs: list,
+    emoji: str,
+) -> list[str]:
+    safe_limit = TELEGRAM_MESSAGE_LIMIT - 200
+    section_header = f"{title}\n{description}\n━━━━━━━━━━━━━━━━━━━━━━"
+    if not jobs:
+        return [f"{section_header}\n\n😕 No jobs in this section."]
+
+    messages = []
+    current = section_header
+    for index, job in enumerate(jobs, start=1):
+        entry = "\n\n" + format_report_job_entry(job, index, emoji)
+        if len(current) + len(entry) > safe_limit:
+            messages.append(current)
+            current = f"{title} continued\n━━━━━━━━━━━━━━━━━━━━━━" + entry
+        else:
+            current += entry
+
+    messages.append(current)
+    return messages
+
+
+def build_no_new_jobs_message(
+    links: list,
+    started_at: datetime,
+    total_scraped: int,
+    time_range_label: str,
+) -> str:
+    timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
+    header = (
+        "🟡 <b>New Job Search</b>\n\n"
+        "🤖 <b>Job Summary Report</b>\n"
+        f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
+        f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
+        f"🔎 <b>Search filters:</b> {len(links)}\n"
+        f"📊 <b>Loaded cards:</b> {total_scraped}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━"
+    )
+    if total_scraped > 0:
+        body = (
+            f"🔁 Found {total_scraped} job card{'s' if total_scraped != 1 else ''}, "
+            "but all of them were already seen in a previous run. No new unique jobs this time."
+        )
+    else:
+        body = "😴 No jobs found in this search window."
+
+    return f"{header}\n\n{body}"
+
+
+def build_full_search_report_messages(
+    accepted: list,
+    rejected: list,
+    links: list,
+    started_at: datetime,
+    total_scraped: int,
+    time_range_label: str,
+) -> list[str]:
+    if not accepted and not rejected:
+        return [
+            build_no_new_jobs_message(links, started_at, total_scraped, time_range_label)
+        ]
+
+    report = build_full_search_report(
+        accepted,
+        rejected,
+        links,
+        started_at,
+        total_scraped,
+        time_range_label,
+    )
+    if len(report) <= TELEGRAM_MESSAGE_LIMIT - 200:
+        return [report]
+
+    messages = split_text_message(
+        build_report_header(
+            accepted,
+            rejected,
+            links,
+            started_at,
+            total_scraped,
+            time_range_label,
+        ),
+        "🤖 <b>Job Summary Report</b>",
+    )
+    messages.extend(
+        build_report_section_messages(
+            "✅ <b>Section 1: High confidence jobs</b>",
+            "These look like the strongest chemical junior/internship matches.",
+            accepted,
+            "🧪",
+        )
+    )
+    messages.extend(
+        build_report_section_messages(
+            "🧐 <b>Section 2: Required reviewing</b>",
+            (
+                "These appeared in the searches, but the rule filter thinks they may not fit.\n"
+                "Review them manually before ignoring them."
+            ),
+            rejected,
+            "🔍",
+        )
+    )
+    return messages
+
+
+def send_full_search_report_to_telegram(
+    accepted: list,
+    rejected: list,
+    links: list,
+    started_at: datetime,
+    total_scraped: int,
+    time_range_label: str,
+) -> None:
+    bot_token = normalize_bot_token(BOT_API)
+    if not bot_token:
+        print("Telegram disabled: TELEGRAM_BOT_API is not set.")
+        return
+
+    if not CHAT_ID:
+        print("Telegram disabled: TELEGRAM_CHAT_ID is not set.")
+        return
+
+    messages = build_full_search_report_messages(
+        accepted,
+        rejected,
+        links,
+        started_at,
+        total_scraped,
+        time_range_label,
+    )
+    if len(messages) > 1:
+        print(
+            "Telegram report is too long for one message. "
+            f"Sending {len(messages)} Telegram messages instead."
+        )
+
+    for message in messages:
+        send_telegram_html_message(bot_token, CHAT_ID, message)
+
 
 def main():
     """Main function to process and send relevant job notifications."""

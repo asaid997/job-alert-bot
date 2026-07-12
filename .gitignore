@@ -1,4 +1,6 @@
 *png
 *html
 *webm
-jobs_cache*
+jobs-cache*
+.venv/
+__pycache__*
