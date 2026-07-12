@@ -2,11 +2,7 @@ name: LinkedIn Job Alert
 
 on:
   schedule:
-    # Once an hour, 07:00-00:00 Amsterdam time. GitHub cron is UTC-only, so DST
-    # is handled with two rules split by month (approximate boundary, off by at
-    # most a week around the actual March/October switch date).
-    - cron: '0 5-22 * 4-10 *'        # CEST (UTC+2), Apr-Oct
-    - cron: '0 6-23 * 11,12,1,2,3 *' # CET (UTC+1), Nov-Mar
+    - cron: '0 5-23 * * *'
   workflow_dispatch:
 
 env:
