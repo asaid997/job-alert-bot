@@ -501,3 +501,191 @@
 
 
 # main()
+
+
+
+
+
+# # LinkedIn time range: r10800 = last 3 hours, r43200 = last 12 hours.
+# TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r10800").strip()
+
+# # TESTING: force every profile's Telegram report to this CHAT_IDS index
+# # (messages.CHAT_IDS[TEST_CHAT_INDEX_OVERRIDE]) instead of its own chat_id_index.
+# # Set to None to route each profile to its real chat_id_index.
+# TEST_CHAT_INDEX_OVERRIDE = 0
+
+# # Each profile is a fully independent search: own regions/titles, own filter
+# # rules, own Telegram destination (CHAT_IDS[chat_id_index]), own job cache.
+# PROFILES = [
+#     {
+#         "name": "devops-remote",
+#         "chat_id_index": 0,
+#         "searches": {
+#             "NL": {"geo_id": "102890719", "region": "Netherlands"},
+#             "IL": {"geo_id": "101620260", "region": "Israel"},
+#             "UK": {"geo_id": "101165590", "region": "United Kingdom"},
+#             "DE": {"geo_id": "101282230", "region": "Germany"},
+#             "FR": {"geo_id": "105015875", "region": "France"},
+#             "ES": {"geo_id": "105646813", "region": "Spain"},
+#         },
+#         "titles": [
+#             # "remote"/"senior" baked into the keywords themselves, since
+#             # LinkedIn's f_WT/f_E facets are AI-driven now and unreliable on
+#             # their own - this nudges its relevance ranking, on top of the
+#             # f_WT=3 facet below and the level_terms/reject_title_terms check
+#             # that does the real accept/reject decision post-scrape.
+#             "devops engineer remote senior",
+#             "site reliability engineer remote senior",
+#             "platform engineer remote senior",
+#         ],
+#         "remotes": "3",  # fully remote only
+#         "domain_terms": [
+#             "docker",
+#             "kubernetes",
+#             "k8s",
+#             "terraform",
+#             "ansible",
+#             "aws",
+#             "azure",
+#             "gcp",
+#             "cloud",
+#             "ci/cd",
+#             "cicd",
+#             "gitops",
+#             "argocd",
+#             "helm",
+#             "iac",
+#             "infrastructure as code",
+#             "sre",
+#             "site reliability",
+#             "platform engineering",
+#             "devops",
+#             "automation",
+#             "observability",
+#             "prometheus",
+#             "grafana",
+#             "jenkins",
+#             "github actions",
+#             "gitlab ci",
+#         ],
+#         "level_terms": [
+#             "mid-senior",
+#             "mid level",
+#             "mid-level",
+#             "senior",
+#             "sr.",
+#             "lead",
+#         ],
+#         "reject_title_terms": [
+#             "junior",
+#             "jr.",
+#             "intern",
+#             "internship",
+#             "entry level",
+#             "entry-level",
+#             "graduate",
+#             "trainee",
+#             "student",
+#             "director",
+#             "vp",
+#             "vice president",
+#             "head of",
+#             "chief",
+#             "cto",
+#             "ciso",
+#         ],
+#     },
+#     {
+#         "name": "chemical-nl",
+#         "chat_id_index": 1,
+#         "searches": {
+#             "NL": {"geo_id": "102890719", "region": "Netherlands"},
+#         },
+#         "titles": [
+#             "chemical engineering internship",
+#             "chemical engineer intern",
+#             "junior chemical engineer",
+#             "entry level chemical engineer",
+#             "graduate chemical engineer",
+#             "junior process engineer",
+#             "process engineer intern",
+#             "formulation engineer",
+#             "quality engineer chemical",
+#             "lab technician chemistry",
+#         ],
+#         "remotes": None,
+#         "domain_terms": [
+#             "chemical",
+#             "chemistry",
+#             "chemist",
+#             "process",
+#             "formulation",
+#             "materials",
+#             "material science",
+#             "polymer",
+#             "pharma",
+#             "pharmaceutical",
+#             "biotech",
+#             "laboratory",
+#             "lab",
+#             "quality",
+#             "quality assurance",
+#             "quality control",
+#             "qa",
+#             "qc",
+#             "r&d",
+#             "research and development",
+#             "manufacturing",
+#             "production",
+#             "water treatment",
+#             "food technology",
+#             "environmental",
+#             "petrochemical",
+#         ],
+#         "level_terms": [
+#             "intern",
+#             "internship",
+#             "trainee",
+#             "traineeship",
+#             "graduate",
+#             "junior",
+#             "entry level",
+#             "associate",
+#             "student",
+#             "thesis",
+#             "starter",
+#             "stage",
+#             "afstudeer",
+#             "werkstudent",
+#         ],
+#         "reject_title_terms": [
+#             "senior",
+#             "sr.",
+#             "lead",
+#             "principal",
+#             "staff",
+#             "manager",
+#             "director",
+#             "head of",
+#             "software",
+#             "frontend",
+#             "backend",
+#             "full stack",
+#             "data engineer",
+#             "data scientist",
+#             "devops",
+#             "site reliability",
+#             "platform engineer",
+#             "support engineer",
+#             "technical support",
+#             "customer support",
+#             "maintenance engineer",
+#             "sales",
+#             "account manager",
+#             "business analyst",
+#             "mechanical engineer",
+#             "electrical engineer",
+#             "civil engineer",
+#         ],
+#     },
+# ]

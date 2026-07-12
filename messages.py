@@ -451,8 +451,8 @@ def build_no_new_jobs_message(
 ) -> str:
     timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
     header = (
-        "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
-        "🛠️ <b>Forge Report</b>\n"
+        "🔧 <b>Hephaestus Job Forge</b> 🔧\n\n"
+        "⏳ <b>Forge Report</b>\n"
         f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
         f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
         f"🔎 <b>Search filters:</b> {len(links)}\n"
@@ -479,8 +479,8 @@ def build_no_matches_message(
 ) -> str:
     timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
     header = (
-        "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
-        "🛠️ <b>Forge Report</b>\n"
+        "🔧 <b>Hephaestus Job Forge</b> 🔧\n\n"
+        "⏳ <b>Forge Report</b>\n"
         f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
         f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
         f"🔎 <b>Search filters:</b> {len(links)}\n"
