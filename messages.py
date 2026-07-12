@@ -30,7 +30,7 @@ def normalize_bot_token(value: str) -> str:
     return match.group(1) if match else value
 
 
-def telegram_request(bot_token: str, method: str, payload: dict | None = None) -> dict:
+def telegram_request(bot_token: str, method: str, payload: dict = None) -> dict:
     bot_token = normalize_bot_token(bot_token)
     url = f"https://api.telegram.org/bot{bot_token}/{method}"
     data = None
@@ -359,7 +359,7 @@ def build_full_search_report(
     return f"{header}\n\n{high_confidence}\n\n{required_review}"
 
 
-def split_text_message(text: str, continuation_title: str) -> list[str]:
+def split_text_message(text: str, continuation_title: str) -> list:
     safe_limit = TELEGRAM_MESSAGE_LIMIT - 200
     if len(text) <= safe_limit:
         return [text]
@@ -385,7 +385,7 @@ def build_report_section_messages(
     description: str,
     jobs: list,
     emoji: str,
-) -> list[str]:
+) -> list:
     safe_limit = TELEGRAM_MESSAGE_LIMIT - 200
     section_header = f"{title}\n{description}\n━━━━━━━━━━━━━━━━━━━━━━"
     if not jobs:
@@ -439,7 +439,7 @@ def build_full_search_report_messages(
     started_at: datetime,
     total_scraped: int,
     time_range_label: str,
-) -> list[str]:
+) -> list:
     if not accepted and not rejected:
         return [
             build_no_new_jobs_message(links, started_at, total_scraped, time_range_label)
