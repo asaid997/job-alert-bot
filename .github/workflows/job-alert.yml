@@ -28,6 +28,9 @@ jobs:
           restore-keys: |
             jobs-cache-${{ github.ref_name }}-${{ runner.os }}-
 
+      - name: Install Playwright Python package (pinned to image's browser version)
+        run: pip install playwright==1.44.0
+
       - name: Run job alert script
         run: python linkedin_open.py
 
