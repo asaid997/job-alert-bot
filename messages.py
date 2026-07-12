@@ -17,7 +17,11 @@ BOT_API = os.environ.get(
     "TELEGRAM_BOT_API",
     "",
 ).strip()
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+CHAT_IDS = [
+    chat_id.strip()
+    for chat_id in os.environ.get("TELEGRAM_CHAT_ID", "").split(",")
+    if chat_id.strip()
+]
 FILTERED_JOBS_FILE = Path("filtered_jobs.json")
 TELEGRAM_MESSAGE_LIMIT = 4096
 
@@ -47,12 +51,13 @@ def telegram_request(bot_token: str, method: str, payload: dict = None) -> dict:
 
 def send_telegram_markdown_message(message: str) -> None:
     """Send a message to Telegram using Markdown formatting."""
-    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
-    try:
-        telegram_request(BOT_API, "sendMessage", payload)
-        logging.info("Message sent to Telegram!")
-    except Exception as e:
-        logging.error(f"Failed to send Telegram message: {e}")
+    for chat_id in CHAT_IDS:
+        payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+        try:
+            telegram_request(BOT_API, "sendMessage", payload)
+            logging.info("Message sent to Telegram!")
+        except Exception as e:
+            logging.error(f"Failed to send Telegram message: {e}")
 
 def format_job_for_telegram(job: dict, location: str, ai_data: dict = None) -> str:
     """Format a single job for Telegram with AI insights."""
@@ -502,7 +507,7 @@ def send_full_search_report_to_telegram(
         print("Telegram disabled: TELEGRAM_BOT_API is not set.")
         return
 
-    if not CHAT_ID:
+    if not CHAT_IDS:
         print("Telegram disabled: TELEGRAM_CHAT_ID is not set.")
         return
 
@@ -520,8 +525,9 @@ def send_full_search_report_to_telegram(
             f"Sending {len(messages)} Telegram messages instead."
         )
 
-    for message in messages:
-        send_telegram_html_message(bot_token, CHAT_ID, message)
+    for chat_id in CHAT_IDS:
+        for message in messages:
+            send_telegram_html_message(bot_token, chat_id, message)
 
 
 def main():
@@ -535,7 +541,7 @@ def main():
     print("=" * 40)
     
     # Check if we have Telegram credentials
-    if not BOT_API or not CHAT_ID:
+    if not BOT_API or not CHAT_IDS:
         print("⚠️  Telegram credentials not found, only printing results...")
         process_and_print_relevant_jobs()
     else:

@@ -26,7 +26,7 @@ SEARCHES = {
 }
 
 # LinkedIn time range: r10800 = last 3 hours, r43200 = last 12 hours.
-TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r43200").strip()
+TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r10800").strip()
 
 DOMAIN_TERMS = [
     "chemical",
