@@ -5,6 +5,7 @@ Reads AI analysis results and prints/sends relevant jobs.
 import json
 import os
 import logging
+import random
 import re
 import time
 from pathlib import Path
@@ -24,6 +25,36 @@ CHAT_IDS = [
 ]
 FILTERED_JOBS_FILE = Path("filtered_jobs.json")
 TELEGRAM_MESSAGE_LIMIT = 4096
+# Verbatim lines spoken by Hephaestus in Hades II (Supergiant Games).
+FORGE_QUOTES = [
+    "Right smart of you!",
+    "Got a discerning eye.",
+    "Good selection, that.",
+    "What a bargain.",
+    "Let's get to work!",
+    "Cheers!",
+    "That I can do.",
+    "Done and done.",
+    "No problem!",
+    "Simple.",
+    "Can do.",
+    "Here you go!",
+    "Suit yourself, witchie!",
+    "Made to order!",
+    "Just what you wanted, right?",
+    "Soon as I'm through, you go knock some sense into some wretches for me, would you?",
+    "You got a dangerous line of work, witchie. Though I can get you some protection here.",
+    "Don't sweat it, you'll be as good as new here in a bit.",
+    (
+        "Can't guarantee a weapon worthy of the gods is going to be enough for you to "
+        "see this through. But I can guarantee you're getting the very best."
+    ),
+]
+
+
+def random_hephaestus_quote() -> str:
+    quote = random.choice(FORGE_QUOTES)
+    return f'\n\n🔥 <i>A quote from Hephaestus: "{quote}"</i>'
 
 
 def normalize_bot_token(value: str) -> str:
@@ -287,7 +318,7 @@ def format_report_job_entry(job: dict, index: int, emoji: str) -> str:
 
     return (
         f"{emoji} <b>{index}.</b> {format_job_title(job)}\n"
-        f"🏢 <b>Company:</b> {html_escape(job.get('company') or 'Unknown company')}\n"
+        f"🏛️ <b>Company:</b> {html_escape(job.get('company') or 'Unknown company')}\n"
         f"📍 <b>Location:</b> {html_escape(job.get('location') or 'Unknown location')}"
         f"{search_line}\n"
         f"💡 <b>Reason:</b> {html_escape(job.get('filter_reason') or 'n/a')}"
@@ -316,14 +347,14 @@ def build_report_header(
     timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
     reviewed_total = len(accepted) + len(rejected)
     return (
-        "✅✅✅✅✅✅✅ <b>New Job Search</b> ✅✅✅✅✅✅✅\n\n"
-        "🤖 <b>Job Summary Report</b>\n"
+        "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
+        "🛠️ <b>Forge Report</b>\n"
         f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
         f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
         f"🔎 <b>Search filters:</b> {len(links)}\n"
         f"📊 <b>Loaded cards:</b> {total_scraped}\n"
         f"🧾 <b>Unique new jobs reviewed:</b> {reviewed_total}\n"
-        f"✅ <b>High confidence:</b> {len(accepted)}\n"
+        f"🏆 <b>High confidence:</b> {len(accepted)}\n"
         f"🧐 <b>Required reviewing:</b> {len(rejected)}\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
@@ -346,22 +377,22 @@ def build_full_search_report(
         time_range_label,
     )
     high_confidence = build_report_section(
-        "✅ <b>Section 1: High confidence jobs</b>",
+        "🏆⚒️ <b>Section 1: Forged Matches</b>",
         "These look like the strongest chemical junior/internship matches.",
         accepted,
-        "🧪",
+        "🔨",
     )
     required_review = build_report_section(
-        "🧐 <b>Section 2: Required reviewing</b>",
+        "🔥🧐 <b>Section 2: Still in the Fire</b>",
         (
             "These appeared in the searches, but the rule filter thinks they may not fit.\n"
             "Review them manually before ignoring them."
         ),
         rejected,
-        "🔍",
+        "⚒️",
     )
 
-    return f"{header}\n\n{high_confidence}\n\n{required_review}"
+    return f"{header}\n\n{high_confidence}\n\n{required_review}{random_hephaestus_quote()}"
 
 
 def split_text_message(text: str, continuation_title: str) -> list:
@@ -418,8 +449,8 @@ def build_no_new_jobs_message(
 ) -> str:
     timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
     header = (
-        "🟡 <b>New Job Search</b>\n\n"
-        "🤖 <b>Job Summary Report</b>\n"
+        "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
+        "🛠️ <b>Forge Report</b>\n"
         f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
         f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
         f"🔎 <b>Search filters:</b> {len(links)}\n"
@@ -432,9 +463,9 @@ def build_no_new_jobs_message(
             "but all of them were already seen in a previous run. No new unique jobs this time."
         )
     else:
-        body = "😴 No jobs found in this search window."
+        body = "😴 The forge is quiet. No jobs found in this search window."
 
-    return f"{header}\n\n{body}"
+    return f"{header}\n\n{body}{random_hephaestus_quote()}"
 
 
 def build_full_search_report_messages(
@@ -470,27 +501,28 @@ def build_full_search_report_messages(
             total_scraped,
             time_range_label,
         ),
-        "🤖 <b>Job Summary Report</b>",
+        "🛠️ <b>Forge Report</b>",
     )
     messages.extend(
         build_report_section_messages(
-            "✅ <b>Section 1: High confidence jobs</b>",
-            "These look like the strongest chemical junior/internship matches.",
+            "🏆⚒️ <b>Section 1: Forged Matches</b>",
+            "Fresh off the anvil — the strongest chemical junior/internship matches.",
             accepted,
-            "🧪",
+            "🔨",
         )
     )
     messages.extend(
         build_report_section_messages(
-            "🧐 <b>Section 2: Required reviewing</b>",
+            "🔥🧐 <b>Section 2: Still in the Fire</b>",
             (
-                "These appeared in the searches, but the rule filter thinks they may not fit.\n"
-                "Review them manually before ignoring them."
+                "These landed in the forge, but the rule filter isn't sure they're shaped right yet.\n"
+                "Review them manually before tossing them in the scrap pile."
             ),
             rejected,
-            "🔍",
+            "⚒️",
         )
     )
+    messages[-1] += random_hephaestus_quote()
     return messages
 
 

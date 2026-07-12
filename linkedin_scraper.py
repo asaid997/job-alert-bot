@@ -107,7 +107,7 @@ REJECT_TITLE_TERMS = [
 LINKEDIN_PAGE_RETRIES = 8
 LINKEDIN_RETRY_DELAY_MS = 5000
 JOBS_CACHE_FILE = Path("jobs-cache/last_jobs.json")
-JOBS_CACHE_RUNS = 3
+JOBS_CACHE_RUNS = 5
 JOBS_TO_FILTER_FILE = Path("jobs_to_filter.json")
 VIDEO_DIR = os.environ.get("LINKEDIN_VIDEO_DIR", "playwright-videos")
 
