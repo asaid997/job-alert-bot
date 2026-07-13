@@ -488,11 +488,8 @@ def build_no_matches_message(
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
     body = (
-        f"🔮 The forge turned over {len(rejected)} listing"
-        f"{'s' if len(rejected) != 1 else ''} this round, but none bore the shape we're "
-        "searching for — titles or roles that didn't match what we're after, nothing more "
-        "mysterious than that."
-        "No jobs found matching Junior/internship chemical engineering roles."
+        f"😕 Checked {len(rejected)} job{'s' if len(rejected) != 1 else ''}, none fit — "
+        "no matching junior/internship roles this round."
     )
 
     return f"{header}\n\n{body}{random_hephaestus_quote()}"
