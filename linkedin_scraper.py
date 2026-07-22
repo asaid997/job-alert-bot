@@ -996,6 +996,7 @@ def run_scrape():
         context.add_init_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         )
+        Stealth().apply_stealth_sync(context)
         page = context.new_page()
 
         for index, link in enumerate(links, start=1):

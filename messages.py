@@ -579,6 +579,12 @@ def send_full_search_report_to_telegram(
         print("Telegram disabled: TELEGRAM_CHAT_ID is not set.")
         return
 
+    # Only notify Telegram when there's at least one high-confidence match.
+    # Delete this block to go back to sending every run (repeats/no-fit too).
+    if not accepted:
+        print("Telegram skipped: no high-confidence jobs this run.")
+        return
+
     messages = build_full_search_report_messages(
         accepted,
         rejected,
