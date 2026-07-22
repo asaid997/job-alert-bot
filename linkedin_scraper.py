@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote_plus, urlparse
+from playwright_stealth import Stealth
 
 SEARCHES = {
     "NL": {
