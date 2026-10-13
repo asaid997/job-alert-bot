@@ -1,44 +1,44 @@
-name: LinkedIn Job Alert
+# name: LinkedIn Job Alert
 
-on:
-  schedule:
-    - cron: '0 5-22 * * *'
-  workflow_dispatch:
+# on:
+#   schedule:
+#     - cron: '0 5-22 * * *'
+#   workflow_dispatch:
 
-env:
-  LINKEDIN_TIME_RANGE: r10800  # Jobs posted in the last 3 hours
+# env:
+#   LINKEDIN_TIME_RANGE: r10800  # Jobs posted in the last 3 hours
 
-jobs:
-  scrape-and-notify:
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright/python:v1.44.0-jammy
-    env:
-      TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+# jobs:
+#   scrape-and-notify:
+#     runs-on: ubuntu-latest
+#     container:
+#       image: mcr.microsoft.com/playwright/python:v1.44.0-jammy
+#     env:
+#       TELEGRAM_BOT_API: ${{ secrets.TELEGRAM_BOT_API }}
+#       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+#     steps:
+#       - name: Checkout repo
+#         uses: actions/checkout@v4
 
-      - name: Cache jobs cache
-        uses: actions/cache@v4
-        with:
-          path: jobs-cache
-          key: jobs-cache-${{ github.ref_name }}-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            jobs-cache-${{ github.ref_name }}-${{ runner.os }}-
+#       - name: Cache jobs cache
+#         uses: actions/cache@v4
+#         with:
+#           path: jobs-cache
+#           key: jobs-cache-${{ github.ref_name }}-${{ runner.os }}-${{ github.run_id }}
+#           restore-keys: |
+#             jobs-cache-${{ github.ref_name }}-${{ runner.os }}-
 
-      - name: Install Playwright Python package (pinned to image's browser version)
-        run: pip install playwright==1.44.0 playwright_stealth==2.0.3
+#       - name: Install Playwright Python package (pinned to image's browser version)
+#         run: pip install playwright==1.44.0 playwright_stealth==2.0.3
 
-      - name: Run job alert script
-        run: python linkedin_open.py
+#       - name: Run job alert script
+#         run: python linkedin_open.py
 
-      - name: Upload Playwright videos
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-videos-${{ github.run_id }}
-          path: playwright-videos/
-          retention-days: 7
-          if-no-files-found: ignore
+#       - name: Upload Playwright videos
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: playwright-videos-${{ github.run_id }}
+#           path: playwright-videos/
+#           retention-days: 7
+#           if-no-files-found: ignore
