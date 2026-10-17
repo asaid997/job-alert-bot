@@ -13,19 +13,11 @@ SEARCHES = {
         "geo_id": "101165590",
         "region": "United Kingdom",
         "titles": [
-            "Trust doctor in obstetrics and gynecology",
             "trust doctor obstetrics gynaecology",
-            "trust grade SHO obstetrics",
-            "senior house officer gynaecology",
-            "junior clinical fellow obstetrics gynaecology",
-            "clinical fellow O&G",
-            "locally employed doctor obstetrics",
             "ST1 obstetrics gynaecology",
             "ST2 obstetrics gynaecology",
             "ST3 obstetrics gynaecology",
             "ST3 gynecology",
-            "senior clinical fellow obstetrics",
-            "registrar obstetrics gynaecology",
         ],
     }
 }
