@@ -6,109 +6,37 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote_plus, urlparse
 from playwright_stealth import Stealth
+from job_filters import assess_job
 
 SEARCHES = {
-    "NL": {
-        "geo_id": "102890719",
-        "region": "Netherlands",
+    "UK": {
+        "geo_id": "101165590",
+        "region": "United Kingdom",
         "titles": [
-            "chemical engineering internship",
-            "chemical engineer intern",
-            "junior chemical engineer",
-            "entry level chemical engineer",
-            "graduate chemical engineer",
-            "junior process engineer",
-            "process engineer intern",
-            "formulation engineer",
-            "quality engineer chemical",
-            "lab technician chemistry",
+            "Trust doctor in obstetrics and gynecology",
+            "trust doctor obstetrics gynaecology",
+            "trust grade SHO obstetrics",
+            "senior house officer gynaecology",
+            "junior clinical fellow obstetrics gynaecology",
+            "clinical fellow O&G",
+            "locally employed doctor obstetrics",
+            "ST1 obstetrics gynaecology",
+            "ST2 obstetrics gynaecology",
+            "ST3 obstetrics gynaecology",
+            "ST3 gynecology",
+            "senior clinical fellow obstetrics",
+            "registrar obstetrics gynaecology",
         ],
     }
 }
 
-# LinkedIn time range: r10800 = last 3 hours, r43200 = last 12 hours.
-TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r10800").strip()
-
-DOMAIN_TERMS = [
-    "chemical",
-    "chemistry",
-    "chemist",
-    "process",
-    "formulation",
-    "materials",
-    "material science",
-    "polymer",
-    "pharma",
-    "pharmaceutical",
-    "biotech",
-    "laboratory",
-    "lab",
-    "quality",
-    "quality assurance",
-    "quality control",
-    "qa",
-    "qc",
-    "r&d",
-    "research and development",
-    "manufacturing",
-    "production",
-    "water treatment",
-    "food technology",
-    "environmental",
-    "petrochemical",
-]
-
-LEVEL_TERMS = [
-    "intern",
-    "internship",
-    "trainee",
-    "traineeship",
-    "graduate",
-    "junior",
-    "entry level",
-    "associate",
-    "student",
-    "thesis",
-    "starter",
-    "stage",
-    "afstudeer",
-    "werkstudent",
-]
-
-REJECT_TITLE_TERMS = [
-    "senior",
-    "sr.",
-    "lead",
-    "principal",
-    "staff",
-    "manager",
-    "director",
-    "head of",
-    "software",
-    "frontend",
-    "backend",
-    "full stack",
-    "data engineer",
-    "data scientist",
-    "devops",
-    "site reliability",
-    "platform engineer",
-    "support engineer",
-    "technical support",
-    "customer support",
-    "maintenance engineer",
-    "sales",
-    "account manager",
-    "business analyst",
-    "mechanical engineer",
-    "electrical engineer",
-    "civil engineer",
-]
+# Overlap searches across the overnight schedule gap. Empty means all posting dates.
+TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r86400").strip()
 
 LINKEDIN_PAGE_RETRIES = 8
 LINKEDIN_RETRY_DELAY_MS = 5000
-JOBS_CACHE_FILE = Path("jobs-cache/last_jobs.json")
-JOBS_CACHE_RUNS = 5
+JOBS_CACHE_FILE = Path("jobs-cache/uk_og_st1_st3_jobs.json")
+JOBS_CACHE_RUNS = 48
 JOBS_TO_FILTER_FILE = Path("jobs_to_filter.json")
 VIDEO_DIR = os.environ.get("LINKEDIN_VIDEO_DIR", "playwright-videos")
 
@@ -116,11 +44,11 @@ VIDEO_DIR = os.environ.get("LINKEDIN_VIDEO_DIR", "playwright-videos")
 def build_jobs_url(job_title, geo_id, remotes):
     url = (
         "https://www.linkedin.com/jobs/search/"
-        f"?distance=25"
-        f"&f_TPR={TIME_RANGE}"
-        f"&geoId={geo_id}"
+        f"?geoId={geo_id}"
         f"&keywords={quote_plus(job_title)}"
     )
+    if TIME_RANGE:
+        url += f"&f_TPR={TIME_RANGE}"
     if remotes:
         url += f"&f_WT={remotes}"
     return url
@@ -813,44 +741,40 @@ def scrape_loaded_jobs(page):
     )
 
 
-def normalize_text(value):
-    return re.sub(r"\s+", " ", value or "").strip().lower()
+def fetch_job_details(page, job):
+    """Read only the advert body, avoiding related-job titles and LinkedIn's seniority tag."""
+    job_id = job.get("job_id") or linkedin_job_id_from_url(job.get("url"))
+    if not job_id or not str(job_id).isdigit():
+        return {**job, "description": ""}
+    try:
+        page.goto(
+            f"https://www.linkedin.com/jobs/view/{job_id}/",
+            wait_until="domcontentloaded",
+            timeout=20000,
+        )
+        description = page.locator(
+            ".show-more-less-html__markup, .jobs-description__content, "
+            ".jobs-description-content__text"
+        ).first
+        description.wait_for(state="attached", timeout=8000)
+        text = description.inner_text(timeout=3000).strip()
+        closed = page.get_by_text("No longer accepting applications", exact=True).count() > 0
+        return {**job, "description": text, "closed": closed}
+    except Exception as exc:
+        print(f"Description unavailable for job {job_id}: {type(exc).__name__}; needs review.")
+        return {**job, "description": ""}
 
 
-def term_pattern(term):
-    escaped = re.escape(term.lower())
-    starts_word = term[0].isalnum()
-    ends_word = term[-1].isalnum()
-    prefix = r"(?<![a-z0-9])" if starts_word else ""
-    suffix = r"(?![a-z0-9])" if ends_word else ""
-    return prefix + escaped + suffix
-
-
-def matching_terms(text, terms):
-    return [term for term in terms if re.search(term_pattern(term), text)]
-
-
-def classify_job(job):
-    title = normalize_text(job.get("title"))
-    company = normalize_text(job.get("company"))
-    text = f"{title} {company}"
-
-    reject_matches = matching_terms(title, REJECT_TITLE_TERMS)
-    if reject_matches:
-        return False, f"title reject terms: {', '.join(reject_matches)}"
-
-    domain_matches = matching_terms(text, DOMAIN_TERMS)
-    if not domain_matches:
-        return False, "no chemical/process/lab/domain signal"
-
-    level_matches = matching_terms(title, LEVEL_TERMS)
-    if not level_matches:
-        return False, "no internship/junior/entry-level signal"
-
-    return True, (
-        f"domain: {', '.join(domain_matches[:3])}; "
-        f"level: {', '.join(level_matches[:3])}"
-    )
+def enrich_new_jobs(page, jobs, known_ids, details_by_id):
+    enriched = []
+    for job in jobs:
+        job_id = cached_job_id(job)
+        if job_id not in known_ids and assess_job(job)[0] != "rejected":
+            if job_id not in details_by_id:
+                details_by_id[job_id] = fetch_job_details(page, job)
+            job = {**job, **details_by_id[job_id]}
+        enriched.append(job)
+    return enriched
 
 
 def filter_jobs(jobs):
@@ -858,9 +782,9 @@ def filter_jobs(jobs):
     rejected = []
 
     for job in jobs:
-        is_accepted, reason = classify_job(job)
-        enriched = {**job, "filter_reason": reason}
-        if is_accepted:
+        status, reason = assess_job(job)
+        enriched = {**job, "match_status": status, "filter_reason": reason}
+        if status == "matched":
             accepted.append(enriched)
         else:
             rejected.append(enriched)
@@ -886,12 +810,15 @@ def print_job_list(jobs, heading):
 def print_filtered_jobs(jobs, search_label):
     accepted, rejected = filter_jobs(jobs)
     print(f"\nScraped {len(jobs)} jobs for {search_label}.")
-    print_job_list(accepted, "Accepted chemical junior/internship matches")
-    print_job_list(rejected, "Rejected jobs for review")
+    print_job_list(accepted, "O&G matches: SHO/ST1–ST3, 0–5 years")
+    print_job_list([job for job in rejected if job["match_status"] == "review"], "Needs checking")
+    print_job_list([job for job in rejected if job["match_status"] == "rejected"], "Excluded jobs")
     return accepted, rejected
 
 
 def time_range_label():
+    if not TIME_RANGE:
+        return "all posting dates"
     if not TIME_RANGE.startswith("r"):
         return TIME_RANGE
 
@@ -979,6 +906,7 @@ def run_scrape():
     jobs_runs = load_cached_jobs()
     notified_job_ids = flatten_job_ids(jobs_runs)
     this_run_job_ids = []
+    details_by_id = {}
 
     print(f"[CACHE] Loaded {len(notified_job_ids)} cached job IDs.")
 
@@ -999,6 +927,7 @@ def run_scrape():
         )
         Stealth().apply_stealth_sync(context)
         page = context.new_page()
+        detail_page = context.new_page()
 
         for index, link in enumerate(links, start=1):
             print(f"\n[{index}/{len(links)}] {link['region']} - {link['title']}")
@@ -1010,6 +939,7 @@ def run_scrape():
             load_all_jobs(page)
             jobs = scrape_loaded_jobs(page)
             total_scraped += len(jobs)
+            jobs = enrich_new_jobs(detail_page, jobs, notified_job_ids, details_by_id)
             accepted, rejected = print_filtered_jobs(jobs, f"{link['region']} - {link['title']}")
             new_accepted, new_rejected = filter_uncached_jobs(
                 accepted,
@@ -1042,8 +972,9 @@ def main():
     result = run_scrape()
     print(
         "\nAll searches finished. "
-        f"Found {len(result['accepted'])} high-confidence and "
-        f"{len(result['rejected'])} review jobs after cache filtering."
+        f"Found {len(result['accepted'])} matches and "
+        f"{sum(job.get('match_status') == 'review' for job in result['rejected'])} "
+        "jobs needing review after cache filtering."
     )
 
 

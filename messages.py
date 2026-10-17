@@ -346,16 +346,19 @@ def build_report_header(
 ) -> str:
     timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
     reviewed_total = len(accepted) + len(rejected)
+    review_count = sum(job.get("match_status") == "review" for job in rejected)
     return (
         "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
         "🛠️ <b>Forge Report</b>\n"
+        "🩺 <b>UK O&amp;G · SHO/ST1–ST3 · 0–5 years</b>\n"
         f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
         f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
         f"🔎 <b>Search filters:</b> {len(links)}\n"
         f"📊 <b>Loaded cards:</b> {total_scraped}\n"
         f"🧾 <b>Unique new jobs reviewed:</b> {reviewed_total}\n"
-        f"🏆 <b>High confidence:</b> {len(accepted)}\n"
-        f"🧐 <b>Required reviewing:</b> {len(rejected)}\n"
+        f"🏆 <b>Matching stated criteria:</b> {len(accepted)}\n"
+        f"🧐 <b>Needs checking:</b> {review_count}\n"
+        f"🚫 <b>Excluded:</b> {len(rejected) - review_count}\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
 
@@ -378,23 +381,20 @@ def build_full_search_report(
     )
     high_confidence = build_report_section(
         "🏆⚒️ <b>Section 1: Forged Matches</b>",
-        "These look like the strongest chemical junior/internship matches.",
+        "O&amp;G roles accepting SHO/ST1–ST3, with stated experience requirements within 0–5 years.",
         accepted,
         "🔨",
     )
-    # Rejected/"needs review" jobs are no longer shown in the report — too many
-    # low-signal entries. Left in place in case we want to re-enable this later.
-    # required_review = build_report_section(
-    #     "🔥🧐 <b>Section 2: Still in the Fire</b>",
-    #     (
-    #         "These appeared in the searches, but the rule filter thinks they may not fit.\n"
-    #         "Review them manually before ignoring them."
-    #     ),
-    #     rejected,
-    #     "⚒️",
-    # )
-
-    return f"{header}\n\n{high_confidence}{random_hephaestus_quote()}"
+    review_jobs = [job for job in rejected if job.get("match_status") == "review"]
+    review_section = ""
+    if review_jobs:
+        review_section = "\n\n" + build_report_section(
+            "🧐 <b>Needs checking</b>",
+            "Confirm the specialty, grade and experience requirements in the full advert.",
+            review_jobs,
+            "🩺",
+        )
+    return f"{header}\n\n{high_confidence}{review_section}{random_hephaestus_quote()}"
 
 
 def split_text_message(text: str, continuation_title: str) -> list:
@@ -489,7 +489,7 @@ def build_no_matches_message(
     )
     body = (
         f"😕 Checked {len(rejected)} job{'s' if len(rejected) != 1 else ''}, none fit — "
-        "no matching junior/internship roles this round."
+        "no matching UK O&amp;G roles at SHO/ST1–ST3 with 0–5 years experience this round."
     )
 
     return f"{header}\n\n{body}{random_hephaestus_quote()}"
@@ -508,7 +508,8 @@ def build_full_search_report_messages(
             build_no_new_jobs_message(links, started_at, total_scraped, time_range_label)
         ]
 
-    if not accepted:
+    review_jobs = [job for job in rejected if job.get("match_status") == "review"]
+    if not accepted and not review_jobs:
         return [
             build_no_matches_message(
                 rejected, links, started_at, total_scraped, time_range_label
@@ -540,24 +541,18 @@ def build_full_search_report_messages(
     messages.extend(
         build_report_section_messages(
             "🏆⚒️ <b>Section 1: Forged Matches</b>",
-            "Fresh off the anvil — the strongest chemical junior/internship matches.",
+            "O&amp;G roles accepting SHO/ST1–ST3, with stated experience requirements within 0–5 years.",
             accepted,
             "🔨",
         )
     )
-    # Rejected/"needs review" jobs are no longer shown in the report — see the
-    # matching comment in build_full_search_report.
-    # messages.extend(
-    #     build_report_section_messages(
-    #         "🔥🧐 <b>Section 2: Still in the Fire</b>",
-    #         (
-    #             "These landed in the forge, but the rule filter isn't sure they're shaped right yet.\n"
-    #             "Review them manually before tossing them in the scrap pile."
-    #         ),
-    #         rejected,
-    #         "⚒️",
-    #     )
-    # )
+    if review_jobs:
+        messages.extend(build_report_section_messages(
+            "🧐 <b>Needs checking</b>",
+            "Confirm the specialty, grade and experience requirements in the full advert.",
+            review_jobs,
+            "🩺",
+        ))
     messages[-1] += random_hephaestus_quote()
     return messages
 
@@ -579,10 +574,9 @@ def send_full_search_report_to_telegram(
         print("Telegram disabled: TELEGRAM_CHAT_ID is not set.")
         return
 
-    # Only notify Telegram when there's at least one high-confidence match.
-    # Delete this block to go back to sending every run (repeats/no-fit too).
-    if not accepted:
-        print("Telegram skipped: no high-confidence jobs this run.")
+    # Missing descriptions/grades must not silently hide potentially suitable jobs.
+    if not accepted and not any(job.get("match_status") == "review" for job in rejected):
+        print("Telegram skipped: no matching jobs or jobs needing review this run.")
         return
 
     messages = build_full_search_report_messages(

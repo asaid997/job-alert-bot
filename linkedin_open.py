@@ -7,8 +7,8 @@ def main():
 
     print(
         "\nAll searches finished. "
-        f"Sending {len(result['accepted'])} high-confidence and "
-        f"{len(result['rejected'])} review jobs to Telegram."
+        f"Found {len(result['accepted'])} matches and "
+        f"{sum(job.get('match_status') == 'review' for job in result['rejected'])} jobs needing review."
     )
     send_full_search_report_to_telegram(
         result["accepted"],

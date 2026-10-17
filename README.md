@@ -1,52 +1,77 @@
-# LinkedIn DevOps Job Alert Bot
+# UK Obstetrics & Gynaecology Job Alerts
 
-This project automatically scrapes DevOps job postings from LinkedIn for multiple locations and sends them as formatted messages to a Telegram chat. It is designed to run on GitHub Actions every 10 minutes, using Playwright for browser automation.
+Searches LinkedIn across the **whole United Kingdom** for O&G doctor vacancies,
+including Trust Doctor, SHO, Junior/Clinical Fellow, Locally Employed Doctor and
+registrar roles accepting **ST1, ST2 or ST3**, with advertised minimum experience
+within **0–5 years**. Both `gynaecology` and `gynecology` searches are included.
 
-## Features
-- Scrapes DevOps jobs from LinkedIn for Israel and Netherlands
-- Sends each job as a neat, emoji-rich Telegram message
-- Caches LinkedIn session for faster, more reliable scraping
-- Runs on a schedule (every 10 minutes) via GitHub Actions
-- All secrets and credentials are managed via GitHub Actions secrets
+## Matching rules
 
-## Setup
+- Accept SHO and ST1–ST3 entry levels, including ST3+ and ranges starting at ST3.
+  Senior House Officer and Senior Clinical Fellow at ST3 are not rejected for
+  containing “senior”. Explicit ST4+ entry levels, consultants, Specialist Grade
+  and non-doctor roles are excluded.
+- Read the advert description before checking experience. Explicit required
+  minima above five years are excluded; months and written numbers are recognised.
+  Ranges use their lower bound, so a role accepting 3–7 years remains eligible.
+- Missing/ambiguous grades, unavailable descriptions, and unspecified or only
+  desirable experience go into **Needs checking**. Specialty Doctor posts without
+  a stated equivalent grade also need checking. Rejected jobs are not listed in
+  Telegram alerts.
+- Experience requirements are checked individually, not added together. A minimum
+  of four postgraduate years including two in O&G is not treated as six years.
+- These are search matches, not confirmation of eligibility. Read the full person
+  specification, including GMC registration, exams, clinical competencies,
+  previous NHS experience and sponsorship. ANIOS does not map automatically to a
+  UK training grade. The parser is conservative and cannot interpret every advert.
 
-### 1. Fork or clone this repository
+## Running
 
-### 2. Set up GitHub Actions Secrets
-Go to your repository Settings > Secrets and add the following:
-- `TELEGRAM_BOT_API`: Your Telegram bot API token (from BotFather)
-- `TELEGRAM_CHAT_ID`: Your Telegram chat ID (where messages will be sent)
-- `LINKEDIN_EMAIL`: LinkedIn login email
-- `LINKEDIN_PASSWORD`: LinkedIn login password
+```sh
+python3 -m venv .venv
+.venv/bin/pip install playwright==1.44.0 playwright_stealth==2.0.3
+.venv/bin/python -m playwright install chromium
+.venv/bin/python linkedin_open.py
+```
 
-### 3. Workflow
-The workflow is defined in `.github/workflows/job-alert.yml` and will:
-- Run every 10 minutes (or on manual dispatch)
-- Use a prebuilt Playwright Python Docker image for fast, reliable scraping
-- Cache the LinkedIn session file and job results between runs
+Set `TELEGRAM_BOT_API` and `TELEGRAM_CHAT_ID` to enable delivery. Multiple chat IDs
+can be comma-separated. With these unset, scraping runs without sending messages.
+No LinkedIn login credentials are used by the current public-page scraper.
 
-### 4. Customization
-- To change locations, edit the `SEARCHES` dictionary in `temp.py`.
-- To change the search keyword, edit the `build_jobs_url` function in `temp.py`.
-- To adjust the schedule, edit the `cron` value in the workflow YAML.
+The GitHub Actions workflow runs hourly from 05:00 through 22:00 **UTC** and can
+also be dispatched manually. Each run searches the last 24 hours, overlapping the
+overnight gap. Job IDs are retained for 48 non-empty runs in a separate UK O&G
+cache so the previous chemistry searches do not suppress medical vacancies.
 
-## Local Development
-1. Install Python 3.11+
-2. Install dependencies:
-   ```sh
-   pip install playwright requests
-   playwright install chromium
-   ```
-3. Set environment variables (see above)
-4. Run the script:
-   ```sh
-   python temp.py
-   ```
+To scan existing postings locally without a posting-date cutoff:
 
-## Security
-- Never commit your secrets to the repository. Always use GitHub Actions secrets.
-- The script uses environment variables for all sensitive data.
+```sh
+LINKEDIN_TIME_RANGE='' .venv/bin/python linkedin_scraper.py
+```
+
+`linkedin_scraper.py` prints and caches results; `linkedin_open.py` additionally
+sends alerts. Use the latter for the normal scheduled workflow. A scraper-only run
+marks results seen, so use a separate cache if you want those results sent later.
+
+## Configuration and checks
+
+- Searches/location: `SEARCHES` in `linkedin_scraper.py`. UK geo ID `101165590`
+  covers England, Scotland, Wales and Northern Ireland; no city-radius filter.
+- Grade/experience rules: `job_filters.py`.
+- Posting window: `LINKEDIN_TIME_RANGE` (`r86400` = 24 hours; empty = all dates).
+- Alert wording: `messages.py`.
+- Schedule/environment: `.github/workflows/job-alert.yml`.
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+The tests use synthetic adverts and mocked detail pages, without sending messages.
+LinkedIn may restrict public-page access; missing detail pages are labelled for
+review. NHS Jobs/Trac integrations are not implemented.
+
+Never commit credentials or local secret files.
 
 ## License
+
 MIT
