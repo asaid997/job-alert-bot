@@ -14,10 +14,10 @@ within **0–5 years**. Both `gynaecology` and `gynecology` searches are include
 - Read the advert description before checking experience. Explicit required
   minima above five years are excluded; months and written numbers are recognised.
   Ranges use their lower bound, so a role accepting 3–7 years remains eligible.
-- Missing/ambiguous grades, unavailable descriptions, and unspecified or only
-  desirable experience go into **Needs checking**. Specialty Doctor posts without
-  a stated equivalent grade also need checking. Rejected jobs are not listed in
-  Telegram alerts.
+- Potential matches with missing/ambiguous grades, unavailable descriptions, or
+  unspecified/only desirable experience stay in the job list for manual checking.
+  Specialty Doctor posts without a stated equivalent grade also need checking.
+  Rejected jobs are not listed in Telegram alerts.
 - Experience requirements are checked individually, not added together. A minimum
   of four postgraduate years including two in O&G is not treated as six years.
 - These are search matches, not confirmation of eligibility. Read the full person
@@ -37,6 +37,13 @@ python3 -m venv .venv
 Set `TELEGRAM_BOT_API` and `TELEGRAM_CHAT_ID` to enable delivery. Multiple chat IDs
 can be comma-separated. With these unset, scraping runs without sending messages.
 No LinkedIn login credentials are used by the current public-page scraper.
+
+Alerts start with a minimal **Hephaestus Job Forge** headline, the report run
+date/time in the Netherlands and the number of jobs found. One numbered list
+shows clickable job titles, hospitals and locations with emojis, followed by one
+random Hephaestus quote. There are no sections or match explanations. Long lists
+continue in another message only when needed for Telegram's size limit, with the
+quote at the very end; empty runs stay silent.
 
 The GitHub Actions workflow runs every three hours from 06:00 through midnight:
 **06:00, 09:00, 12:00, 15:00, 18:00, 21:00 and 00:00 Netherlands time**

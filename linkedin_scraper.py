@@ -2,7 +2,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote_plus, urlparse
 from playwright_stealth import Stealth
@@ -890,7 +890,7 @@ def run_scrape():
     from playwright.sync_api import sync_playwright
 
     links = make_search_links()
-    search_started_at = datetime.now()
+    search_started_at = datetime.now(timezone.utc)
     all_accepted = []
     all_rejected = []
     seen_jobs = set()

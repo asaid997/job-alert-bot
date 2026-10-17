@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -150,17 +150,34 @@ class SearchPipelineTests(unittest.TestCase):
 
 class AlertTests(unittest.TestCase):
     def test_review_jobs_visible_and_rejected_jobs_hidden(self):
+        accepted = [{
+            "title": "Trust Doctor ST1/2 O&G", "match_status": "matched",
+            "company": "Example <NHS> Trust", "location": "London",
+            "url": "https://example.com/jobs/1?a=1&b=2",
+        }]
         jobs = [
             {"title": "Trust Doctor ST3 O&G", "match_status": "review", "filter_reason": "Check experience"},
             {"title": "Excluded consultant", "match_status": "rejected", "filter_reason": "Consultant"},
         ]
-        report = "\n".join(messages.build_full_search_report_messages(
-            [], jobs, [], datetime(2026, 10, 17), 2, "last 1 day",
+        with patch.object(messages.random, "choice", return_value="Done and done.") as choice:
+            report = "\n".join(messages.build_full_search_report_messages(
+                accepted, jobs, [], datetime(2026, 10, 17, 13, tzinfo=timezone.utc), 3, "last 6 hours",
+            ))
+        choice.assert_called_once_with(messages.FORGE_QUOTES)
+        self.assertTrue(report.startswith(
+            "🔥⚒️ <b>Hephaestus Job Forge</b>\n"
+            "🕒 Report run at 17 Oct 2026, 15:00 (Netherlands time)\n🩺 2 jobs found"
         ))
-        self.assertIn("Needs checking", report)
+        self.assertIn('1. <a href="https://example.com/jobs/1?a=1&amp;b=2">Trust Doctor ST1/2 O&amp;G</a>', report)
+        self.assertIn("🏥 Example &lt;NHS&gt; Trust · 📍 London", report)
+        self.assertIn("2. Trust Doctor ST3", report)
         self.assertIn("Trust Doctor ST3", report)
         self.assertNotIn("Excluded consultant", report)
         self.assertNotIn("chemical", report)
+        self.assertNotIn("Needs checking", report)
+        self.assertNotIn("Section", report)
+        self.assertNotIn("Check experience", report)
+        self.assertTrue(report.endswith('🔥 <i>Hephaestus: “Done and done.”</i>'))
 
     def test_long_review_reports_fit_telegram(self):
         jobs = [{
@@ -168,12 +185,21 @@ class AlertTests(unittest.TestCase):
             "filter_reason": "Grade and experience need checking", "location": "Belfast",
             "url": f"https://www.linkedin.com/jobs/view/{123456789 + i}/",
         } for i in range(60)]
-        reports = messages.build_full_search_report_messages(
-            [], jobs, [], datetime(2026, 10, 17), len(jobs), "last 1 day",
-        )
+        quote = max(messages.FORGE_QUOTES, key=len)
+        with patch.object(messages.random, "choice", return_value=quote) as choice:
+            reports = messages.build_full_search_report_messages(
+                [], jobs, [], datetime(2026, 1, 17, 14, tzinfo=timezone.utc), len(jobs), "last 6 hours",
+            )
+        choice.assert_called_once_with(messages.FORGE_QUOTES)
+        self.assertTrue(reports[0].startswith(
+            "🔥⚒️ <b>Hephaestus Job Forge</b>\n"
+            "🕒 Report run at 17 Jan 2026, 15:00 (Netherlands time)\n🩺 60 jobs found"
+        ))
         self.assertGreater(len(reports), 1)
         self.assertTrue(all(len(report) <= messages.TELEGRAM_MESSAGE_LIMIT for report in reports))
         self.assertIn("Trust Doctor ST3 O&amp;G 59", "\n".join(reports))
+        self.assertEqual("\n".join(reports).count("Hephaestus: “"), 1)
+        self.assertTrue(reports[-1].endswith(f'🔥 <i>Hephaestus: “{messages.html_escape(quote)}”</i>'))
 
 
 if __name__ == "__main__":

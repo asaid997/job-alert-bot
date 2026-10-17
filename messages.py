@@ -1,7 +1,4 @@
-"""
-Messages module for handling AI-filtered job notifications.
-Reads AI analysis results and prints/sends relevant jobs.
-"""
+"""Telegram job notification formatting and delivery."""
 import json
 import os
 import logging
@@ -12,6 +9,7 @@ from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 # Telegram configuration
 BOT_API = os.environ.get(
@@ -25,7 +23,8 @@ CHAT_IDS = [
 ]
 FILTERED_JOBS_FILE = Path("filtered_jobs.json")
 TELEGRAM_MESSAGE_LIMIT = 4096
-# Verbatim lines spoken by Hephaestus in Hades II (Supergiant Games).
+
+# Keep the original Hephaestus quote pool, choosing one closing line per report.
 FORGE_QUOTES = [
     "Right smart of you!",
     "Got a discerning eye.",
@@ -53,8 +52,8 @@ FORGE_QUOTES = [
 
 
 def random_hephaestus_quote() -> str:
-    quote = random.choice(FORGE_QUOTES)
-    return f'\n\n🔥 <i>A quote from Hephaestus: "{quote}"</i>'
+    quote = html_escape(random.choice(FORGE_QUOTES))
+    return f'\n\n🔥 <i>Hephaestus: “{quote}”</i>'
 
 
 def normalize_bot_token(value: str) -> str:
@@ -305,194 +304,13 @@ def format_job_title(job: dict) -> str:
     return f'<a href="{html_escape(url)}">{title}</a>'
 
 
-def format_report_job_entry(job: dict, index: int, emoji: str) -> str:
-    search_bits = []
-    if job.get("search_region"):
-        search_bits.append(job["search_region"])
-    if job.get("search_title"):
-        search_bits.append(job["search_title"])
-
-    search_line = ""
-    if search_bits:
-        search_line = f"\n🔎 <b>Found via:</b> {html_escape(' / '.join(search_bits))}"
-
-    return (
-        f"{emoji} <b>{index}.</b> {format_job_title(job)}\n"
-        f"🏛️ <b>Company:</b> {html_escape(job.get('company') or 'Unknown company')}\n"
-        f"📍 <b>Location:</b> {html_escape(job.get('location') or 'Unknown location')}"
-        f"{search_line}\n"
-        f"💡 <b>Reason:</b> {html_escape(job.get('filter_reason') or 'n/a')}"
+def format_report_job_entry(job: dict, index: int) -> str:
+    details = " · ".join(
+        f"{emoji} {html_escape(job[key])}"
+        for key, emoji in (("company", "🏥"), ("location", "📍")) if job.get(key)
     )
-
-
-def build_report_section(title: str, description: str, jobs: list, emoji: str) -> str:
-    if not jobs:
-        return f"{title}\n{description}\n\n😕 No jobs in this section."
-
-    entries = [
-        format_report_job_entry(job, index, emoji)
-        for index, job in enumerate(jobs, start=1)
-    ]
-    return f"{title}\n{description}\n━━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n\n".join(entries)
-
-
-def build_report_header(
-    accepted: list,
-    rejected: list,
-    links: list,
-    started_at: datetime,
-    total_scraped: int,
-    time_range_label: str,
-) -> str:
-    timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
-    reviewed_total = len(accepted) + len(rejected)
-    review_count = sum(job.get("match_status") == "review" for job in rejected)
-    return (
-        "🔥⚒️🔥⚒️🔥 <b>Hephaestus Job Forge</b> 🔥⚒️🔥⚒️🔥\n\n"
-        "🛠️ <b>Forge Report</b>\n"
-        "🩺 <b>UK O&amp;G · SHO/ST1–ST3 · 0–5 years</b>\n"
-        f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
-        f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
-        f"🔎 <b>Search filters:</b> {len(links)}\n"
-        f"📊 <b>Loaded cards:</b> {total_scraped}\n"
-        f"🧾 <b>Unique new jobs reviewed:</b> {reviewed_total}\n"
-        f"🏆 <b>Matching stated criteria:</b> {len(accepted)}\n"
-        f"🧐 <b>Needs checking:</b> {review_count}\n"
-        f"🚫 <b>Excluded:</b> {len(rejected) - review_count}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━"
-    )
-
-
-def build_full_search_report(
-    accepted: list,
-    rejected: list,
-    links: list,
-    started_at: datetime,
-    total_scraped: int,
-    time_range_label: str,
-) -> str:
-    header = build_report_header(
-        accepted,
-        rejected,
-        links,
-        started_at,
-        total_scraped,
-        time_range_label,
-    )
-    high_confidence = build_report_section(
-        "🏆⚒️ <b>Section 1: Forged Matches</b>",
-        "O&amp;G roles accepting SHO/ST1–ST3, with stated experience requirements within 0–5 years.",
-        accepted,
-        "🔨",
-    )
-    review_jobs = [job for job in rejected if job.get("match_status") == "review"]
-    review_section = ""
-    if review_jobs:
-        review_section = "\n\n" + build_report_section(
-            "🧐 <b>Needs checking</b>",
-            "Confirm the specialty, grade and experience requirements in the full advert.",
-            review_jobs,
-            "🩺",
-        )
-    return f"{header}\n\n{high_confidence}{review_section}{random_hephaestus_quote()}"
-
-
-def split_text_message(text: str, continuation_title: str) -> list:
-    safe_limit = TELEGRAM_MESSAGE_LIMIT - 200
-    if len(text) <= safe_limit:
-        return [text]
-
-    messages = []
-    current = ""
-    for line in text.splitlines():
-        addition = line if not current else f"\n{line}"
-        if current and len(current) + len(addition) > safe_limit:
-            messages.append(current)
-            current = f"{continuation_title} continued\n━━━━━━━━━━━━━━━━━━━━━━\n{line}"
-        else:
-            current += addition
-
-    if current:
-        messages.append(current)
-
-    return messages
-
-
-def build_report_section_messages(
-    title: str,
-    description: str,
-    jobs: list,
-    emoji: str,
-) -> list:
-    safe_limit = TELEGRAM_MESSAGE_LIMIT - 200
-    section_header = f"{title}\n{description}\n━━━━━━━━━━━━━━━━━━━━━━"
-    if not jobs:
-        return [f"{section_header}\n\n😕 No jobs in this section."]
-
-    messages = []
-    current = section_header
-    for index, job in enumerate(jobs, start=1):
-        entry = "\n\n" + format_report_job_entry(job, index, emoji)
-        if len(current) + len(entry) > safe_limit:
-            messages.append(current)
-            current = f"{title} continued\n━━━━━━━━━━━━━━━━━━━━━━" + entry
-        else:
-            current += entry
-
-    messages.append(current)
-    return messages
-
-
-def build_no_new_jobs_message(
-    links: list,
-    started_at: datetime,
-    total_scraped: int,
-    time_range_label: str,
-) -> str:
-    timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
-    header = (
-        "🔧 <b>Hephaestus Job Forge</b> 🔧\n\n"
-        "⏳ <b>Forge Report</b>\n"
-        f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
-        f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
-        f"🔎 <b>Search filters:</b> {len(links)}\n"
-        f"📊 <b>Loaded cards:</b> {total_scraped}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━"
-    )
-    if total_scraped > 0:
-        body = (
-            f"🔁 Found {total_scraped} job card{'s' if total_scraped != 1 else ''}, "
-            "but all of them were already seen in a previous run. No new unique jobs this time."
-        )
-    else:
-        body = "😴 The forge is quiet. No jobs found in this search window."
-
-    return f"{header}\n\n{body}{random_hephaestus_quote()}"
-
-
-def build_no_matches_message(
-    rejected: list,
-    links: list,
-    started_at: datetime,
-    total_scraped: int,
-    time_range_label: str,
-) -> str:
-    timestamp = started_at.strftime("%Y-%m-%d %H:%M:%S")
-    header = (
-        "🔧 <b>Hephaestus Job Forge</b> 🔧\n\n"
-        "⏳ <b>Forge Report</b>\n"
-        f"🕒 <b>Time of searching:</b> {html_escape(timestamp)}\n"
-        f"⏱️ <b>Looking back:</b> {html_escape(time_range_label)}\n"
-        f"🔎 <b>Search filters:</b> {len(links)}\n"
-        f"📊 <b>Loaded cards:</b> {total_scraped}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━"
-    )
-    body = (
-        f"😕 Checked {len(rejected)} job{'s' if len(rejected) != 1 else ''}, none fit — "
-        "no matching UK O&amp;G roles at SHO/ST1–ST3 with 0–5 years experience this round."
-    )
-
-    return f"{header}\n\n{body}{random_hephaestus_quote()}"
+    title = f"🔨 {index}. {format_job_title(job)}"
+    return f"{title}\n{details}" if details else title
 
 
 def build_full_search_report_messages(
@@ -503,58 +321,32 @@ def build_full_search_report_messages(
     total_scraped: int,
     time_range_label: str,
 ) -> list:
-    if not accepted and not rejected:
-        return [
-            build_no_new_jobs_message(links, started_at, total_scraped, time_range_label)
-        ]
-
-    review_jobs = [job for job in rejected if job.get("match_status") == "review"]
-    if not accepted and not review_jobs:
-        return [
-            build_no_matches_message(
-                rejected, links, started_at, total_scraped, time_range_label
-            )
-        ]
-
-    report = build_full_search_report(
-        accepted,
-        rejected,
-        links,
-        started_at,
-        total_scraped,
-        time_range_label,
+    """One continuous job list, chunked only between jobs for Telegram's size limit."""
+    jobs = accepted + [job for job in rejected if job.get("match_status") == "review"]
+    if not jobs:
+        return []
+    report_time = started_at.astimezone(ZoneInfo("Europe/Amsterdam"))
+    timestamp = report_time.strftime("%d %b %Y, %H:%M")
+    footer = random_hephaestus_quote()
+    # Reserve space before chunking so even the longest quote fits the last message.
+    message_limit = TELEGRAM_MESSAGE_LIMIT - len(footer)
+    result = []
+    current = (
+        "🔥⚒️ <b>Hephaestus Job Forge</b>\n"
+        f"🕒 Report run at {timestamp} (Netherlands time)\n"
+        f"🩺 {len(jobs)} job{'s' if len(jobs) != 1 else ''} found"
     )
-    if len(report) <= TELEGRAM_MESSAGE_LIMIT - 200:
-        return [report]
-
-    messages = split_text_message(
-        build_report_header(
-            accepted,
-            rejected,
-            links,
-            started_at,
-            total_scraped,
-            time_range_label,
-        ),
-        "🛠️ <b>Forge Report</b>",
-    )
-    messages.extend(
-        build_report_section_messages(
-            "🏆⚒️ <b>Section 1: Forged Matches</b>",
-            "O&amp;G roles accepting SHO/ST1–ST3, with stated experience requirements within 0–5 years.",
-            accepted,
-            "🔨",
-        )
-    )
-    if review_jobs:
-        messages.extend(build_report_section_messages(
-            "🧐 <b>Needs checking</b>",
-            "Confirm the specialty, grade and experience requirements in the full advert.",
-            review_jobs,
-            "🩺",
-        ))
-    messages[-1] += random_hephaestus_quote()
-    return messages
+    for index, job in enumerate(jobs, start=1):
+        entry = format_report_job_entry(job, index)
+        addition = f"\n\n{entry}" if current else entry
+        if current and len(current) + len(addition) > message_limit:
+            result.append(current)
+            current = entry
+        else:
+            current += addition
+    if current:
+        result.append(current + footer)
+    return result
 
 
 def send_full_search_report_to_telegram(
