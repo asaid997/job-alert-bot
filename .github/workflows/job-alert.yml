@@ -2,11 +2,12 @@ name: LinkedIn Job Alert
 
 on:
   schedule:
-    - cron: '0 5-22 * * *'
+    - cron: '0 0,6,9,12,15,18,21 * * *'
+      timezone: 'Europe/Amsterdam'
   workflow_dispatch:
 
 env:
-  LINKEDIN_TIME_RANGE: r86400  # Last 24 hours, including the overnight schedule gap
+  LINKEDIN_TIME_RANGE: r21600  # Jobs posted in the last 6 hours
 
 jobs:
   scrape-and-notify:

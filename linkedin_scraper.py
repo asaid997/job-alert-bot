@@ -22,8 +22,8 @@ SEARCHES = {
     }
 }
 
-# Overlap searches across the overnight schedule gap. Empty means all posting dates.
-TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r86400").strip()
+# Last six hours. Empty means all posting dates.
+TIME_RANGE = os.environ.get("LINKEDIN_TIME_RANGE", "r21600").strip()
 
 LINKEDIN_PAGE_RETRIES = 8
 LINKEDIN_RETRY_DELAY_MS = 5000

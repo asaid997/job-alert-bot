@@ -38,9 +38,11 @@ Set `TELEGRAM_BOT_API` and `TELEGRAM_CHAT_ID` to enable delivery. Multiple chat 
 can be comma-separated. With these unset, scraping runs without sending messages.
 No LinkedIn login credentials are used by the current public-page scraper.
 
-The GitHub Actions workflow runs hourly from 05:00 through 22:00 **UTC** and can
-also be dispatched manually. Each run searches the last 24 hours, overlapping the
-overnight gap. Job IDs are retained for 48 non-empty runs in a separate UK O&G
+The GitHub Actions workflow runs every three hours from 06:00 through midnight:
+**06:00, 09:00, 12:00, 15:00, 18:00, 21:00 and 00:00 Netherlands time**
+(`Europe/Amsterdam`), automatically following summer/winter time. There is no
+03:00 run. It can also be dispatched manually. Each run searches the **last six
+hours only**. Job IDs are retained for 48 non-empty runs in a separate UK O&G
 cache so the previous chemistry searches do not suppress medical vacancies.
 
 To scan existing postings locally without a posting-date cutoff:
@@ -58,7 +60,7 @@ marks results seen, so use a separate cache if you want those results sent later
 - Searches/location: `SEARCHES` in `linkedin_scraper.py`. UK geo ID `101165590`
   covers England, Scotland, Wales and Northern Ireland; no city-radius filter.
 - Grade/experience rules: `job_filters.py`.
-- Posting window: `LINKEDIN_TIME_RANGE` (`r86400` = 24 hours; empty = all dates).
+- Posting window: `LINKEDIN_TIME_RANGE` (`r21600` = 6 hours; empty = all dates).
 - Alert wording: `messages.py`.
 - Schedule/environment: `.github/workflows/job-alert.yml`.
 
