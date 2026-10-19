@@ -166,7 +166,7 @@ class AlertTests(unittest.TestCase):
         choice.assert_called_once_with(messages.FORGE_QUOTES)
         self.assertTrue(report.startswith(
             "🔥⚒️ <b>Hephaestus Job Forge</b>\n"
-            "🕒 Report run at 17 Oct 2026, 15:00 (Netherlands time)\n🩺 2 jobs found"
+            "🕒 Report run at 17 Oct 2026, 13:00 (UTC)\n🩺 2 jobs found"
         ))
         self.assertIn('1. <a href="https://example.com/jobs/1?a=1&amp;b=2">Trust Doctor ST1/2 O&amp;G</a>', report)
         self.assertIn("🏥 Example &lt;NHS&gt; Trust · 📍 London", report)
@@ -193,7 +193,7 @@ class AlertTests(unittest.TestCase):
         choice.assert_called_once_with(messages.FORGE_QUOTES)
         self.assertTrue(reports[0].startswith(
             "🔥⚒️ <b>Hephaestus Job Forge</b>\n"
-            "🕒 Report run at 17 Jan 2026, 15:00 (Netherlands time)\n🩺 60 jobs found"
+            "🕒 Report run at 17 Jan 2026, 14:00 (UTC)\n🩺 60 jobs found"
         ))
         self.assertGreater(len(reports), 1)
         self.assertTrue(all(len(report) <= messages.TELEGRAM_MESSAGE_LIMIT for report in reports))

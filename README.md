@@ -39,16 +39,15 @@ can be comma-separated. With these unset, scraping runs without sending messages
 No LinkedIn login credentials are used by the current public-page scraper.
 
 Alerts start with a minimal **Hephaestus Job Forge** headline, the report run
-date/time in the Netherlands and the number of jobs found. One numbered list
+date/time in UTC and the number of jobs found. One numbered list
 shows clickable job titles, hospitals and locations with emojis, followed by one
 random Hephaestus quote. There are no sections or match explanations. Long lists
 continue in another message only when needed for Telegram's size limit, with the
 quote at the very end; empty runs stay silent.
 
 The GitHub Actions workflow runs every three hours from 06:00 through midnight:
-**06:00, 09:00, 12:00, 15:00, 18:00, 21:00 and 00:00 Netherlands time**
-(`Europe/Amsterdam`), automatically following summer/winter time. There is no
-03:00 run. It can also be dispatched manually. Each run searches the **last six
+**06:00, 09:00, 12:00, 15:00, 18:00, 21:00 and 00:00 UTC** year-round. There is no
+03:00 run or summer/winter adjustment. It can also be dispatched manually. Each run searches the **last six
 hours only**. Job IDs are retained for 48 non-empty runs in a separate UK O&G
 cache so the previous chemistry searches do not suppress medical vacancies.
 

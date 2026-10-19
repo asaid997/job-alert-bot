@@ -2,8 +2,7 @@ name: LinkedIn Job Alert
 
 on:
   schedule:
-    - cron: '0 0,6,9,12,15,18,21 * * *'
-      timezone: 'Europe/Amsterdam'
+    - cron: '0 0,6,9,12,15,18,21 * * *'  # UTC
   workflow_dispatch:
 
 env:

@@ -6,10 +6,9 @@ import random
 import re
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo
 
 # Telegram configuration
 BOT_API = os.environ.get(
@@ -325,7 +324,7 @@ def build_full_search_report_messages(
     jobs = accepted + [job for job in rejected if job.get("match_status") == "review"]
     if not jobs:
         return []
-    report_time = started_at.astimezone(ZoneInfo("Europe/Amsterdam"))
+    report_time = started_at.astimezone(timezone.utc)
     timestamp = report_time.strftime("%d %b %Y, %H:%M")
     footer = random_hephaestus_quote()
     # Reserve space before chunking so even the longest quote fits the last message.
@@ -333,7 +332,7 @@ def build_full_search_report_messages(
     result = []
     current = (
         "🔥⚒️ <b>Hephaestus Job Forge</b>\n"
-        f"🕒 Report run at {timestamp} (Netherlands time)\n"
+        f"🕒 Report run at {timestamp} (UTC)\n"
         f"🩺 {len(jobs)} job{'s' if len(jobs) != 1 else ''} found"
     )
     for index, job in enumerate(jobs, start=1):

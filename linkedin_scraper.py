@@ -907,7 +907,7 @@ def run_scrape():
         context = browser.new_context(
             viewport={"width": 1280, "height": 800},
             locale="en-US",
-            timezone_id="Europe/Amsterdam",
+            timezone_id="UTC",
             extra_http_headers={
                 "Accept-Language": "en-US,en;q=0.9",
             },
