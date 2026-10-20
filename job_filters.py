@@ -19,8 +19,13 @@ EXCLUDED_ROLE = re.compile(
     r"\b(?:consultant|specialist grade|specialist doctor|associate specialist|"
     r"clinical lead|clinical director|head of|professor|nurse|nursing|midwife|"
     r"midwifery|midwives|practitioner|physician associate|physician assistant|"
-    r"healthcare assistant|sonographer|technician|administrator|manager)\b",
+    r"healthcare assistant|sonographer|technician|administrator|manager|"
+    r"general\s+safety\s+officer|safety\s+evaluation\s+physician)\b",
     re.I,
+)
+OTHER_SPECIALTY = re.compile(r"\b(?:icu|itu|icm|intensive\s+care|critical\s+care)\b", re.I)
+SENIOR_ROLE = re.compile(
+    r"\bsenior\s+(?:clinical\s+(?:(?:research|teaching)\s+)?fellow|registrar)\b", re.I,
 )
 GRADE = re.compile(
     r"\b(?:st|ct)\s*(\d+)"
@@ -59,6 +64,48 @@ OPTIONAL = re.compile(
     r"\b(?:desirable|preferred|preferable|ideally|advantage|not essential|not required|not necessary)\b",
     re.I,
 )
+GRADE_REQUIREMENT = re.compile(
+    r"\b(?:completed?|completion|achieved?|satisfactory|arcp|competenc(?:e|ies)|equivalent)\b"
+    r"|\b(?:st|ct)\s*\d+\s*(?:\+|and above\b|or above\b|level\b|experience\b|training\b)",
+    re.I,
+)
+APPLICANT_REQUIREMENT = re.compile(
+    r"\b(?:applicants?|candidates?|you)\b.{0,80}\b(?:must|should|need|require)\b"
+    r"|^\s*(?:must|should|required to)\b", re.I,
+)
+
+
+def required_grade_minima(description):
+    """Read applicant grade requirements without treating supervisors as applicants."""
+    section = ""
+    minima = []
+    for raw_line in re.split(r"\n|;|(?<=[.!?])\s+", description):
+        line = raw_line.strip(" \t•*-")
+        if re.fullmatch(r"essential(?: criteria| requirements)?\s*:?", line, re.I):
+            section = "essential"
+        elif re.fullmatch(r"desirable(?: criteria| requirements)?\s*:?", line, re.I):
+            section = "desirable"
+        elif re.fullmatch(
+            r"(?:qualifications|experience|aptitudes|interests|benefits|about us|"
+            r"job description|main duties)\s*:?", line, re.I,
+        ):
+            section = ""
+        grades = [int(match.group(1)) for match in GRADE.finditer(line)]
+        if not grades or section == "desirable" or OPTIONAL.search(line):
+            continue
+        applicant_requirement = APPLICANT_REQUIREMENT.search(line)
+        if not applicant_requirement and re.search(
+            r"\b(?:work(?:ing)? with|supported by|supervised by|supervision|"
+            r"colleagues|team includes)\b", line, re.I,
+        ):
+            continue
+        required = (
+            section == "essential" or REQUIRED.search(line)
+            or re.search(r"\bby (?:the )?(?:commencement|start)\b", line, re.I)
+        )
+        if required and (applicant_requirement or GRADE_REQUIREMENT.search(line) or GRADE.fullmatch(line)):
+            minima.append(min(grades))
+    return minima
 
 
 def experience_requirement(description):
@@ -96,7 +143,7 @@ def experience_requirement(description):
     return "review", "experience requirement unclear or not stated; check against 0–5 years"
 
 
-def assess_job(job):
+def assess_job(job, *, details_pending=False):
     """Return matched/review/rejected plus an explanation, never assume ANIOS equivalence."""
     title = job.get("title") or ""
     description = job.get("description") or ""
@@ -108,6 +155,9 @@ def assess_job(job):
     excluded = EXCLUDED_ROLE.search(title)
     if excluded:
         return "rejected", f"excluded role: {excluded.group()}"
+    other_specialty = OTHER_SPECIALTY.search(title)
+    if other_specialty and not SPECIALTY.search(title):
+        return "rejected", f"different specialty from O&G: {other_specialty.group()}"
     if not DOCTOR_ROLE.search(title) and not GRADE.search(title):
         return "rejected", "not an identified doctor role"
 
@@ -116,13 +166,19 @@ def assess_job(job):
     grades = title_grades or [int(match.group(1)) for match in GRADE.finditer(role_text)]
     if grades and min(grades) > MAX_ST_GRADE:
         return "rejected", "advertised starting grade is above ST3"
+    required_grades = required_grade_minima(description)
+    if required_grades and max(required_grades) > MAX_ST_GRADE:
+        return "rejected", "mandatory applicant grade is above ST3"
+    grades = grades or required_grades
+    grade_known = bool(grades) or bool(JUNIOR_ROLE.search(title))
+    if SENIOR_ROLE.search(title) and not grade_known and not details_pending:
+        return "rejected", "senior role without confirmed SHO/ST1–ST3 eligibility"
     # The actual role must be O&G; an NHS employer name or search term is not evidence.
     if not SPECIALTY.search(title + "\n" + description):
         if not description:
             return "review", "description unavailable; confirm O&G specialty, grade and 0–5 years experience"
         return "rejected", "no obstetrics/gynaecology signal in the advert"
     # A range beginning at ST3 (ST3+, ST3–5, ST3–8) remains in scope.
-    grade_known = bool(grades) or bool(JUNIOR_ROLE.search(title))
     grade_reason = f"ST{min(grades)} entry level" if grades else "SHO/junior clinical fellow level"
     if not grade_known:
         grade_reason = "grade unspecified; confirm SHO/ST1–ST3 suitability"

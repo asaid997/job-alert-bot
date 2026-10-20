@@ -761,7 +761,7 @@ def enrich_new_jobs(page, jobs, known_ids, details_by_id):
     enriched = []
     for job in jobs:
         job_id = cached_job_id(job)
-        if job_id not in known_ids and assess_job(job)[0] != "rejected":
+        if job_id not in known_ids and assess_job(job, details_pending=True)[0] != "rejected":
             if job_id not in details_by_id:
                 details_by_id[job_id] = fetch_job_details(page, job)
             job = {**job, **details_by_id[job_id]}

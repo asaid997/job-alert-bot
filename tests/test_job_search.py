@@ -26,8 +26,13 @@ class MedicalMatchingTests(unittest.TestCase):
             ("Nurse Practitioner in Gynaecology", "rejected"),
             ("Midwife in Obstetrics", "rejected"),
             ("Physician Associate in O&G", "rejected"),
+            ("General Safety Officer", "rejected"),
+            ("Senior General Safety Officer", "rejected"),
+            ("Senior General Safety Officer/ General Safety Officer", "rejected"),
+            ("SENIOR SAFETY EVALUATION PHYSICIAN / GENERAL SAFETY OFFICER", "rejected"),
+            ("Senior Safety Evaluation Physician", "rejected"),
             ("Trust Doctor in Obstetrics and Gynecology", "review"),
-            ("Senior Clinical Fellow in Gynaecology", "review"),
+            ("Senior Clinical Fellow in Gynaecology", "rejected"),
             ("Specialty Doctor in Obstetrics", "review"),
             ("Registrar in O&G", "review"),
             ("Junior Chemical Engineer", "rejected"),
@@ -96,6 +101,59 @@ class MedicalMatchingTests(unittest.TestCase):
             "description": "Job title: Clinical Fellow ST3+\nEssential\nTwo years of experience",
         })[0], "matched")
 
+    def test_icu_is_not_og_even_when_hospital_description_mentions_it(self):
+        for title in (
+            "ST3 Clinical Fellow in ICU", "ST3 Clinical Fellow in ITU",
+            "ST3 Clinical Fellow in Intensive Care", "ST3 Clinical Fellow in Critical Care",
+        ):
+            for description in ("", "Our hospital provides obstetrics and gynaecology services.\nEssential\nTwo years of experience"):
+                with self.subTest(title=title, description=description):
+                    self.assertEqual(assess_job({"title": title, "description": description})[0], "rejected")
+        self.assertEqual(assess_job({
+            "title": "Trust Doctor ST3 O&G",
+            "description": "Work with ICU colleagues.\nEssential\nTwo years of experience",
+        })[0], "matched")
+
+    def test_required_senior_grade_in_person_specification(self):
+        title = "Senior Clinical Fellow in Gynaecological Oncology"
+        for requirement in (
+            "Qualifications\nEssential criteria\nSatisfactory ST5 ARCP by commencement of post",
+            "Experience\nEssential\nST5 and above or equivalent, with sequential annual appraisals",
+            "Applicants must have completed ST5 or equivalent.",
+            "Grade: Senior Clinical Fellow (ST6 equivalent)",
+        ):
+            with self.subTest(requirement=requirement):
+                status, reason = assess_job({"title": title, "description": requirement})
+                self.assertEqual(status, "rejected")
+                self.assertIn("above ST3", reason)
+        # Essential criteria still apply when a title advertises a lower grade.
+        self.assertEqual(assess_job({
+            "title": "Clinical Fellow ST3 O&G",
+            "description": "Essential\nSatisfactory ST5 ARCP by commencement of post",
+        })[0], "rejected")
+
+    def test_senior_fellow_requires_confirmed_junior_grade(self):
+        title = "Senior Clinical Fellow in Gynaecological Oncology"
+        self.assertEqual(assess_job({"title": title})[0], "rejected")
+        for description in (
+            "Grade: ST3\nEssential\nTwo years of experience",
+            "Essential\nST3 or equivalent\nTwo years of experience",
+        ):
+            with self.subTest(description=description):
+                self.assertEqual(assess_job({"title": title, "description": description})[0], "matched")
+
+    def test_preferred_grades_and_supervisors_do_not_raise_required_grade(self):
+        for detail in (
+            "Desirable\nST5 or equivalent",
+            "ST5 experience is not required",
+            "Essential\nWork with ST7 registrars and consultants",
+        ):
+            with self.subTest(detail=detail):
+                self.assertEqual(assess_job({
+                    "title": "Clinical Fellow ST3 O&G",
+                    "description": "Essential\nTwo years of experience\n" + detail,
+                })[0], "matched")
+
 
 class SearchPipelineTests(unittest.TestCase):
     def test_country_searches_have_no_city_or_seniority_restriction(self):
@@ -143,9 +201,42 @@ class SearchPipelineTests(unittest.TestCase):
         jobs = [
             {"title": "Trust Doctor ST3 O&G", "job_id": "123456789"},
             {"title": "Consultant O&G", "job_id": "987654321"},
+            {"title": "Senior General Safety Officer/ General Safety Officer", "job_id": "987654322"},
+            {"title": "ST3 Clinical Fellow in ICU", "job_id": "4481576729"},
         ]
         scraper.enrich_new_jobs(page, jobs, {"123456789"}, {})
         page.goto.assert_not_called()
+
+    def test_senior_fellows_are_checked_before_deciding_their_grade(self):
+        job = {"title": "Senior Clinical Fellow in Gynaecological Oncology", "job_id": "4481577611"}
+        for description, expected in (
+            ("Grade: ST3\nEssential\nTwo years of experience", "matched"),
+            ("Essential\nSatisfactory ST5 ARCP by commencement of post", "rejected"),
+            ("", "rejected"),
+        ):
+            with self.subTest(description=description), patch.object(
+                scraper, "fetch_job_details", return_value={**job, "description": description},
+            ) as fetch:
+                enriched = scraper.enrich_new_jobs(Mock(), [job], set(), {})
+                fetch.assert_called_once()
+                accepted, other = scraper.filter_jobs(enriched)
+                self.assertEqual((accepted + other)[0]["match_status"], expected)
+
+    def test_report_excludes_the_reported_false_positives(self):
+        jobs = [
+            {"title": "CT1 Obstetrics & Gynaecology", "description": "Essential\nTwo years of experience"},
+            {"title": "Senior Clinical Fellow in Gynaecological Oncology"},
+            {"title": "ST3 Clinical Fellow in ICU"},
+            {"title": "SENIOR SAFETY EVALUATION PHYSICIAN / GENERAL SAFETY OFFICER"},
+        ]
+        accepted, other = scraper.filter_jobs(jobs)
+        report = "\n".join(messages.build_full_search_report_messages(
+            accepted, other, [], datetime(2026, 10, 20, 16, tzinfo=timezone.utc), len(jobs), "last 6 hours",
+        ))
+        self.assertIn("1 job found", report)
+        self.assertIn("CT1 Obstetrics", report)
+        for job in jobs[1:]:
+            self.assertNotIn(job["title"], report)
 
 
 class AlertTests(unittest.TestCase):

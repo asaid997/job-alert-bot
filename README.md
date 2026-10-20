@@ -11,10 +11,18 @@ within **0–5 years**. Both `gynaecology` and `gynecology` searches are include
   Senior House Officer and Senior Clinical Fellow at ST3 are not rejected for
   containing “senior”. Explicit ST4+ entry levels, consultants, Specialist Grade
   and non-doctor roles are excluded.
+- ICU/intensive-care posts are excluded even when the hospital description
+  mentions O&G. General Safety Officer and Safety Evaluation Physician roles
+  are also excluded.
+- Senior clinical fellow/registrar posts need a confirmed SHO/ST1–ST3 grade
+  before appearing in alerts. Their details are checked first; an unavailable
+  description or unclear grade does not qualify a senior post for an alert.
+  Mandatory higher-grade criteria, such as a satisfactory ST5 ARCP, override
+  a lower grade in the title. Colleagues' grades and desirable criteria do not.
 - Read the advert description before checking experience. Explicit required
   minima above five years are excluded; months and written numbers are recognised.
   Ranges use their lower bound, so a role accepting 3–7 years remains eligible.
-- Potential matches with missing/ambiguous grades, unavailable descriptions, or
+- Other potential matches with missing/ambiguous grades, unavailable descriptions, or
   unspecified/only desirable experience stay in the job list for manual checking.
   Specialty Doctor posts without a stated equivalent grade also need checking.
   Rejected jobs are not listed in Telegram alerts.
