@@ -23,7 +23,10 @@ EXCLUDED_ROLE = re.compile(
     r"general\s+safety\s+officer|safety\s+evaluation\s+physician)\b",
     re.I,
 )
-OTHER_SPECIALTY = re.compile(r"\b(?:icu|itu|icm|intensive\s+care|critical\s+care)\b", re.I)
+OTHER_SPECIALTY = re.compile(
+    r"\b(?:icu|itu|icm|intensive\s+care|critical\s+care|"
+    r"orthodont(?:ics|ic|ist)|dent(?:al|ist|istry)|psychiatr(?:y|ic|ist))\b", re.I,
+)
 SENIOR_ROLE = re.compile(
     r"\bsenior\s+(?:clinical\s+(?:(?:research|teaching)\s+)?fellow|registrar)\b", re.I,
 )
@@ -39,6 +42,29 @@ ROLE_LINE = re.compile(
     r"|\b(?:post|role|position)\s+(?:at|equivalent to)\s+st\s*\d",
     re.I,
 )
+SPECIALTY_FIELD = re.compile(
+    r"^[ \t]*(?:special(?:i)?ty|department|main area|job title|post title)"
+    r"[ \t]*(?::[ \t]*|\n[ \t]*)([^\n]+)", re.I | re.M,
+)
+ROLE_SPECIALTY_CONTEXT = re.compile(
+    r"\b(?:you|post[- ]?holder|successful candidate)\b"
+    r"|\bjoin\b.{0,100}\b(?:team|department|service|unit)\b", re.I,
+)
+
+
+def has_og_role_evidence(title, description):
+    """Require O&G in the role itself, not just the employer's list of services."""
+    if SPECIALTY.search(title):
+        return True
+    for field in SPECIALTY_FIELD.finditer(description):
+        if SPECIALTY.search(field.group(1)):
+            return True
+    for line in re.split(r"\n|;|(?<=[.!?])\s+", description):
+        if SPECIALTY.search(line) and (
+            DOCTOR_ROLE.search(line) or ROLE_LINE.search(line) or ROLE_SPECIALTY_CONTEXT.search(line)
+        ):
+            return True
+    return False
 
 NUMBERS = {
     "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -173,11 +199,11 @@ def assess_job(job, *, details_pending=False):
     grade_known = bool(grades) or bool(JUNIOR_ROLE.search(title))
     if SENIOR_ROLE.search(title) and not grade_known and not details_pending:
         return "rejected", "senior role without confirmed SHO/ST1–ST3 eligibility"
-    # The actual role must be O&G; an NHS employer name or search term is not evidence.
-    if not SPECIALTY.search(title + "\n" + description):
-        if not description:
-            return "review", "description unavailable; confirm O&G specialty, grade and 0–5 years experience"
-        return "rejected", "no obstetrics/gynaecology signal in the advert"
+    # Generic doctor titles can be fetched, but must establish O&G before alerting.
+    if not has_og_role_evidence(title, description):
+        if details_pending:
+            return "review", "fetch description to confirm the role is in obstetrics/gynaecology"
+        return "rejected", "obstetrics/gynaecology specialty not confirmed for this role"
     # A range beginning at ST3 (ST3+, ST3–5, ST3–8) remains in scope.
     grade_reason = f"ST{min(grades)} entry level" if grades else "SHO/junior clinical fellow level"
     if not grade_known:

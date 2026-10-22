@@ -11,9 +11,13 @@ within **0–5 years**. Both `gynaecology` and `gynecology` searches are include
   Senior House Officer and Senior Clinical Fellow at ST3 are not rejected for
   containing “senior”. Explicit ST4+ entry levels, consultants, Specialist Grade
   and non-doctor roles are excluded.
-- ICU/intensive-care posts are excluded even when the hospital description
-  mentions O&G. General Safety Officer and Safety Evaluation Physician roles
-  are also excluded.
+- ICU/intensive-care, orthodontics/dental and psychiatry posts are excluded
+  when identified in the title, even when the hospital description mentions O&G.
+  General Safety Officer and Safety Evaluation Physician roles are also excluded.
+- Every reported job needs O&G evidence in its title or role description.
+  Generic titles such as "Speciality Doctor" are checked by fetching the advert;
+  if the specialty cannot be confirmed, they are excluded. An employer name,
+  search keyword or general hospital list of services does not establish O&G.
 - Senior clinical fellow/registrar posts need a confirmed SHO/ST1–ST3 grade
   before appearing in alerts. Their details are checked first; an unavailable
   description or unclear grade does not qualify a senior post for an alert.
@@ -22,9 +26,10 @@ within **0–5 years**. Both `gynaecology` and `gynecology` searches are include
 - Read the advert description before checking experience. Explicit required
   minima above five years are excluded; months and written numbers are recognised.
   Ranges use their lower bound, so a role accepting 3–7 years remains eligible.
-- Other potential matches with missing/ambiguous grades, unavailable descriptions, or
-  unspecified/only desirable experience stay in the job list for manual checking.
-  Specialty Doctor posts without a stated equivalent grade also need checking.
+- Other O&G roles with missing/ambiguous grades or unspecified/only desirable
+  experience stay in the job list for manual checking. An unavailable description
+  can only pass this check if the title itself identifies O&G. Specialty Doctor
+  posts in O&G without a stated equivalent grade also need checking.
   Rejected jobs are not listed in Telegram alerts.
 - Experience requirements are checked individually, not added together. A minimum
   of four postgraduate years including two in O&G is not treated as six years.
@@ -83,8 +88,9 @@ marks results seen, so use a separate cache if you want those results sent later
 ```
 
 The tests use synthetic adverts and mocked detail pages, without sending messages.
-LinkedIn may restrict public-page access; missing detail pages are labelled for
-review. NHS Jobs/Trac integrations are not implemented.
+LinkedIn may restrict public-page access; roles with missing detail pages are
+only kept for review when their titles establish O&G and the senior-grade rules
+allow it. NHS Jobs/Trac integrations are not implemented.
 
 Never commit credentials or local secret files.
 

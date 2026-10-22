@@ -86,7 +86,7 @@ class MedicalMatchingTests(unittest.TestCase):
 
     def test_uncertain_and_unrelated_jobs(self):
         self.assertEqual(assess_job({"title": "Trust Doctor ST3 in O&G"})[0], "review")
-        self.assertEqual(assess_job({"title": "Trust Doctor"})[0], "review")
+        self.assertEqual(assess_job({"title": "Trust Doctor"})[0], "rejected")
         self.assertEqual(assess_job({
             "title": "Junior Clinical Fellow Cardiology", "company": "O&G NHS Trust",
             "description": "Essential\nTwo years of cardiology experience",
@@ -154,6 +154,52 @@ class MedicalMatchingTests(unittest.TestCase):
                     "description": "Essential\nTwo years of experience\n" + detail,
                 })[0], "matched")
 
+    def test_dental_and_psychiatry_titles_cannot_be_og_matches(self):
+        for title in (
+            "Specialty Doctor Orthodontics", "Speciality Doctor in Dentistry",
+            "ST3 Clinical Fellow in Dental Surgery", "Specialty Doctor in Psychiatry",
+        ):
+            for description in ("", "Our hospital provides obstetrics and gynaecology services."):
+                with self.subTest(title=title, description=description):
+                    self.assertEqual(assess_job({
+                        "title": title, "description": description,
+                    })[0], "rejected")
+        self.assertEqual(assess_job({
+            "title": "Trust Doctor ST3 in O&G",
+            "description": "Liaise with psychiatry colleagues.\nEssential\nTwo years of experience",
+        })[0], "matched")
+
+    def test_specialty_must_be_identified_before_reporting(self):
+        for title in ("Speciality Doctor", "Specialty Doctor", "Trust Doctor", "ST3 Clinical Fellow"):
+            with self.subTest(title=title):
+                job = {"title": title, "company": "Obstetrics and Gynaecology NHS Trust"}
+                self.assertEqual(assess_job(job, details_pending=True)[0], "review")
+                self.assertEqual(assess_job(job)[0], "rejected")
+
+    def test_generic_titles_need_role_specific_og_evidence(self):
+        for detail in (
+            "Specialty: Obstetrics and Gynaecology",
+            "Main area\nObstetrics and Gynaecology",
+            "We are recruiting a Trust Doctor for our O&G service.",
+            "This post is in Obstetrics and Gynaecology.",
+            "You will join our obstetrics and gynaecology team.",
+        ):
+            with self.subTest(detail=detail):
+                self.assertEqual(assess_job({
+                    "title": "Trust Doctor ST3",
+                    "description": detail + "\nEssential\nTwo years of experience",
+                })[0], "matched")
+        for detail in (
+            "Our hospital provides obstetrics and gynaecology, cardiology and dental services.",
+            "About us\nThe Trust has obstetrics and gynaecology services.",
+            "This post is in psychiatry.\nOur hospital has obstetrics and gynaecology services.",
+        ):
+            with self.subTest(detail=detail):
+                self.assertEqual(assess_job({
+                    "title": "Trust Doctor ST3",
+                    "description": detail + "\nEssential\nTwo years of experience",
+                })[0], "rejected")
+
 
 class SearchPipelineTests(unittest.TestCase):
     def test_country_searches_have_no_city_or_seniority_restriction(self):
@@ -203,6 +249,7 @@ class SearchPipelineTests(unittest.TestCase):
             {"title": "Consultant O&G", "job_id": "987654321"},
             {"title": "Senior General Safety Officer/ General Safety Officer", "job_id": "987654322"},
             {"title": "ST3 Clinical Fellow in ICU", "job_id": "4481576729"},
+            {"title": "Specialty Doctor Orthodontics", "job_id": "4482455753"},
         ]
         scraper.enrich_new_jobs(page, jobs, {"123456789"}, {})
         page.goto.assert_not_called()
@@ -228,6 +275,8 @@ class SearchPipelineTests(unittest.TestCase):
             {"title": "Senior Clinical Fellow in Gynaecological Oncology"},
             {"title": "ST3 Clinical Fellow in ICU"},
             {"title": "SENIOR SAFETY EVALUATION PHYSICIAN / GENERAL SAFETY OFFICER"},
+            {"title": "Speciality Doctor", "company": "Priory"},
+            {"title": "Specialty Doctor Orthodontics"},
         ]
         accepted, other = scraper.filter_jobs(jobs)
         report = "\n".join(messages.build_full_search_report_messages(
@@ -237,6 +286,26 @@ class SearchPipelineTests(unittest.TestCase):
         self.assertIn("CT1 Obstetrics", report)
         for job in jobs[1:]:
             self.assertNotIn(job["title"], report)
+
+    def test_generic_doctor_details_are_checked_and_failed_fetches_are_excluded(self):
+        job = {"title": "Speciality Doctor", "job_id": "4482450727"}
+        for description, expected in (
+            ("", "rejected"),
+            ("This post is in psychiatry.", "rejected"),
+            ("Specialty: O&G\nGrade: ST3\nEssential\nTwo years of experience", "matched"),
+        ):
+            with self.subTest(description=description), patch.object(
+                scraper, "fetch_job_details", return_value={**job, "description": description},
+            ) as fetch:
+                enriched = scraper.enrich_new_jobs(Mock(), [job], set(), {})
+                fetch.assert_called_once()
+                accepted, other = scraper.filter_jobs(enriched)
+                self.assertEqual((accepted + other)[0]["match_status"], expected)
+        with patch.object(scraper, "fetch_job_details", return_value={**job, "description": ""}):
+            accepted, other = scraper.filter_jobs(scraper.enrich_new_jobs(Mock(), [job], set(), {}))
+            self.assertEqual(messages.build_full_search_report_messages(
+                accepted, other, [], datetime(2026, 10, 22, 10, tzinfo=timezone.utc), 1, "last 6 hours",
+            ), [])
 
 
 class AlertTests(unittest.TestCase):
