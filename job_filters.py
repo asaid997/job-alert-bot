@@ -7,7 +7,7 @@ MAX_ST_GRADE = 3
 
 SPECIALTY = re.compile(
     r"\b(?:obstetrics?|gyn(?:a?ecology|a?ecological|ae|ec)|obgyn|ob-gyn)\b"
-    r"|\bo\s*(?:&|and|/)\s*g\b|\bobs\s*(?:&|and|/)\s*gyn(?:ae)?\b",
+    r"|\bob?\s*(?:&|and|/)\s*g\b|\bobs\s*(?:&|and|/)\s*gyn(?:ae)?\b",
     re.I,
 )
 DOCTOR_ROLE = re.compile(
@@ -20,15 +20,13 @@ EXCLUDED_ROLE = re.compile(
     r"clinical lead|clinical director|head of|professor|nurse|nursing|midwife|"
     r"midwifery|midwives|practitioner|physician associate|physician assistant|"
     r"healthcare assistant|sonographer|technician|administrator|manager|"
-    r"general\s+safety\s+officer|safety\s+evaluation\s+physician)\b",
+    r"general\s+safety\s+officer|safety\s+evaluation\s+physician|"
+    r"ana?esthe(?:sia|siology|siologists?|tics?|tists?))\b",
     re.I,
 )
 OTHER_SPECIALTY = re.compile(
     r"\b(?:icu|itu|icm|intensive\s+care|critical\s+care|"
     r"orthodont(?:ics|ic|ist)|dent(?:al|ist|istry)|psychiatr(?:y|ic|ist))\b", re.I,
-)
-SENIOR_ROLE = re.compile(
-    r"\bsenior\s+(?:clinical\s+(?:(?:research|teaching)\s+)?fellow|registrar)\b", re.I,
 )
 GRADE = re.compile(
     r"\b(?:st|ct)\s*(\d+)"
@@ -197,8 +195,6 @@ def assess_job(job, *, details_pending=False):
         return "rejected", "mandatory applicant grade is above ST3"
     grades = grades or required_grades
     grade_known = bool(grades) or bool(JUNIOR_ROLE.search(title))
-    if SENIOR_ROLE.search(title) and not grade_known and not details_pending:
-        return "rejected", "senior role without confirmed SHO/ST1–ST3 eligibility"
     # Generic doctor titles can be fetched, but must establish O&G before alerting.
     if not has_og_role_evidence(title, description):
         if details_pending:

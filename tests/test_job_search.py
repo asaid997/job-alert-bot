@@ -32,7 +32,7 @@ class MedicalMatchingTests(unittest.TestCase):
             ("SENIOR SAFETY EVALUATION PHYSICIAN / GENERAL SAFETY OFFICER", "rejected"),
             ("Senior Safety Evaluation Physician", "rejected"),
             ("Trust Doctor in Obstetrics and Gynecology", "review"),
-            ("Senior Clinical Fellow in Gynaecology", "rejected"),
+            ("Senior Clinical Fellow in Gynaecology", "review"),
             ("Specialty Doctor in Obstetrics", "review"),
             ("Registrar in O&G", "review"),
             ("Junior Chemical Engineer", "rejected"),
@@ -132,15 +132,56 @@ class MedicalMatchingTests(unittest.TestCase):
             "description": "Essential\nSatisfactory ST5 ARCP by commencement of post",
         })[0], "rejected")
 
-    def test_senior_fellow_requires_confirmed_junior_grade(self):
+    def test_senior_og_roles_with_unclear_grade_are_reviewed(self):
         title = "Senior Clinical Fellow in Gynaecological Oncology"
-        self.assertEqual(assess_job({"title": title})[0], "rejected")
+        self.assertEqual(assess_job({"title": title})[0], "review")
         for description in (
             "Grade: ST3\nEssential\nTwo years of experience",
             "Essential\nST3 or equivalent\nTwo years of experience",
         ):
             with self.subTest(description=description):
                 self.assertEqual(assess_job({"title": title, "description": description})[0], "matched")
+
+        for title in (
+            "Senior Clinical Fellow in Obs & Gynae", "Senior Clinical Fellow in OB&G",
+            "Senior Locally Employed Doctor in Obstetrics and Gynaecology",
+            "Senior Registrar in Gynaecology", "Senior Clinical Research Fellow in O&G",
+        ):
+            with self.subTest(title=title):
+                self.assertEqual(assess_job({"title": title})[0], "review")
+        generic = {"title": "Senior Clinical Fellow", "company": "O&G NHS Trust"}
+        self.assertEqual(assess_job(generic)[0], "rejected")
+        self.assertEqual(assess_job({
+            **generic, "description": "Specialty: Obstetrics and Gynaecology",
+        })[0], "review")
+
+    def test_senior_og_roles_still_respect_grade_and_experience_limits(self):
+        for job in (
+            {"title": "Senior Clinical Fellow ST4 in O&G"},
+            {"title": "Senior Locally Employed Doctor in O&G", "description": "Grade: ST5"},
+            {"title": "Senior Clinical Fellow in O&G", "description": "Essential\nSix years of clinical experience"},
+        ):
+            with self.subTest(job=job):
+                self.assertEqual(assess_job(job)[0], "rejected")
+
+    def test_anaesthesia_roles_are_excluded_even_with_obstetric_duties(self):
+        for title in (
+            "Senior Locally Employed Doctor in Anaesthesia",
+            "Senior Locally Employed Doctor in Anesthesia",
+            "Senior Clinical Fellow in Obstetric Anaesthesia",
+            "Clinical Fellow ST3 in Obstetric Anesthesiology",
+            "Trust Doctor in Anaesthetics",
+            "Specialty Doctor Anaesthetist",
+        ):
+            for description in ("", "You will provide anaesthesia for our obstetrics and gynaecology patients."):
+                with self.subTest(title=title, description=description):
+                    self.assertEqual(assess_job({
+                        "title": title, "description": description,
+                    })[0], "rejected")
+        self.assertEqual(assess_job({
+            "title": "Senior Clinical Fellow ST3 in Obs & Gynae",
+            "description": "Work alongside the anaesthesia team.\nEssential\nTwo years of experience",
+        })[0], "matched")
 
     def test_preferred_grades_and_supervisors_do_not_raise_required_grade(self):
         for detail in (
@@ -250,6 +291,7 @@ class SearchPipelineTests(unittest.TestCase):
             {"title": "Senior General Safety Officer/ General Safety Officer", "job_id": "987654322"},
             {"title": "ST3 Clinical Fellow in ICU", "job_id": "4481576729"},
             {"title": "Specialty Doctor Orthodontics", "job_id": "4482455753"},
+            {"title": "Senior Locally Employed Doctor in Anaesthesia", "job_id": "4483562465"},
         ]
         scraper.enrich_new_jobs(page, jobs, {"123456789"}, {})
         page.goto.assert_not_called()
@@ -259,7 +301,7 @@ class SearchPipelineTests(unittest.TestCase):
         for description, expected in (
             ("Grade: ST3\nEssential\nTwo years of experience", "matched"),
             ("Essential\nSatisfactory ST5 ARCP by commencement of post", "rejected"),
-            ("", "rejected"),
+            ("", "review"),
         ):
             with self.subTest(description=description), patch.object(
                 scraper, "fetch_job_details", return_value={**job, "description": description},
@@ -272,7 +314,10 @@ class SearchPipelineTests(unittest.TestCase):
     def test_report_excludes_the_reported_false_positives(self):
         jobs = [
             {"title": "CT1 Obstetrics & Gynaecology", "description": "Essential\nTwo years of experience"},
-            {"title": "Senior Clinical Fellow in Gynaecological Oncology"},
+            {
+                "title": "Senior Clinical Fellow in Gynaecological Oncology",
+                "description": "Essential\nSatisfactory ST5 ARCP by commencement of post",
+            },
             {"title": "ST3 Clinical Fellow in ICU"},
             {"title": "SENIOR SAFETY EVALUATION PHYSICIAN / GENERAL SAFETY OFFICER"},
             {"title": "Speciality Doctor", "company": "Priory"},
@@ -286,6 +331,22 @@ class SearchPipelineTests(unittest.TestCase):
         self.assertIn("CT1 Obstetrics", report)
         for job in jobs[1:]:
             self.assertNotIn(job["title"], report)
+
+    def test_report_keeps_senior_og_and_excludes_anaesthesia(self):
+        jobs = [
+            {"title": "Senior Clinical Fellow in Obs & Gynae", "company": "West Suffolk NHS Foundation Trust"},
+            {
+                "title": "Senior Locally Employed Doctor in Anaesthesia",
+                "description": "You will provide anaesthesia for our obstetrics and gynaecology patients.",
+            },
+        ]
+        accepted, other = scraper.filter_jobs(jobs)
+        report = "\n".join(messages.build_full_search_report_messages(
+            accepted, other, [], datetime(2026, 10, 26, 18, tzinfo=timezone.utc), len(jobs), "last 6 hours",
+        ))
+        self.assertIn("1 job found", report)
+        self.assertIn("Senior Clinical Fellow in Obs &amp; Gynae", report)
+        self.assertNotIn("Senior Locally Employed Doctor in Anaesthesia", report)
 
     def test_generic_doctor_details_are_checked_and_failed_fetches_are_excluded(self):
         job = {"title": "Speciality Doctor", "job_id": "4482450727"}

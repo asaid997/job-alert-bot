@@ -8,19 +8,22 @@ within **0–5 years**. Both `gynaecology` and `gynecology` searches are include
 ## Matching rules
 
 - Accept SHO and ST1–ST3 entry levels, including ST3+ and ranges starting at ST3.
-  Senior House Officer and Senior Clinical Fellow at ST3 are not rejected for
-  containing “senior”. Explicit ST4+ entry levels, consultants, Specialist Grade
+  Doctor roles with clear O&G evidence are not rejected for containing “senior”.
+  Explicit ST4+ entry levels, consultants, Specialist Grade
   and non-doctor roles are excluded.
 - ICU/intensive-care, orthodontics/dental and psychiatry posts are excluded
   when identified in the title, even when the hospital description mentions O&G.
   General Safety Officer and Safety Evaluation Physician roles are also excluded.
+- Anaesthesia/anesthesia roles are excluded by title, including obstetric
+  anaesthesia. An O&G doctor's description mentioning anaesthesia colleagues
+  does not exclude that doctor.
 - Every reported job needs O&G evidence in its title or role description.
   Generic titles such as "Speciality Doctor" are checked by fetching the advert;
   if the specialty cannot be confirmed, they are excluded. An employer name,
   search keyword or general hospital list of services does not establish O&G.
-- Senior clinical fellow/registrar posts need a confirmed SHO/ST1–ST3 grade
-  before appearing in alerts. Their details are checked first; an unavailable
-  description or unclear grade does not qualify a senior post for an alert.
+- Senior clinical fellow, registrar and locally employed doctor roles with clear
+  O&G evidence remain in alerts for review when their grade is unspecified.
+  They are still checked against the same ST1–ST3 and 0–5 years criteria.
   Mandatory higher-grade criteria, such as a satisfactory ST5 ARCP, override
   a lower grade in the title. Colleagues' grades and desirable criteria do not.
 - Read the advert description before checking experience. Explicit required
@@ -89,8 +92,8 @@ marks results seen, so use a separate cache if you want those results sent later
 
 The tests use synthetic adverts and mocked detail pages, without sending messages.
 LinkedIn may restrict public-page access; roles with missing detail pages are
-only kept for review when their titles establish O&G and the senior-grade rules
-allow it. NHS Jobs/Trac integrations are not implemented.
+only kept for review when their titles establish O&G and no exclusion applies.
+NHS Jobs/Trac integrations are not implemented.
 
 Never commit credentials or local secret files.
 
